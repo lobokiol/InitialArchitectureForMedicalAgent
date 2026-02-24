@@ -1,0 +1,199 @@
+{
+  "accuracy": 0.8,
+  "precision": 0.75,
+  "recall": 0.875,
+  "f1": 0.8076923076923077,
+  "total": 10,
+  "correct": 8,
+  "report": "分类报告:\n准确率: 80.00%\n  mixed: Precision=50.00%, Recall=100.00%, F1=66.67%\n  symptom: Precision=100.00%, Recall=75.00%, F1=85.71%",
+  "confusion_matrix": [
+    [
+      2,
+      0
+    ],
+    [
+      2,
+      6
+    ]
+  ],
+  "labels": [
+    "mixed",
+    "symptom"
+  ],
+  "details": [
+    {
+      "id": 1,
+      "question": "发烧了怎么办？",
+      "expected": "mixed",
+      "predicted": "mixed",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": true,
+        "main_intent": "mixed",
+        "symptom_query": "发烧",
+        "process_query": "怎么办",
+        "need_symptom_search": true,
+        "need_process_search": true,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 2,
+      "question": "感冒咳嗽应该挂什么科？",
+      "expected": "mixed",
+      "predicted": "mixed",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": true,
+        "main_intent": "mixed",
+        "symptom_query": "感冒咳嗽",
+        "process_query": "应该挂什么科",
+        "need_symptom_search": true,
+        "need_process_search": true,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 3,
+      "question": "头痛持续好几天了",
+      "expected": "symptom",
+      "predicted": "symptom",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": false,
+        "main_intent": "symptom",
+        "symptom_query": "头痛持续好几天了",
+        "process_query": null,
+        "need_symptom_search": true,
+        "need_process_search": false,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 4,
+      "question": "肚子疼拉肚子",
+      "expected": "symptom",
+      "predicted": "symptom",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": false,
+        "main_intent": "symptom",
+        "symptom_query": "肚子疼拉肚子",
+        "process_query": null,
+        "need_symptom_search": true,
+        "need_process_search": false,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 5,
+      "question": "胸闷气短怎么办",
+      "expected": "symptom",
+      "predicted": "mixed",
+      "correct": false,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": true,
+        "main_intent": "mixed",
+        "symptom_query": "胸闷气短",
+        "process_query": "怎么办",
+        "need_symptom_search": true,
+        "need_process_search": true,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 6,
+      "question": "血压高要挂什么科",
+      "expected": "symptom",
+      "predicted": "mixed",
+      "correct": false,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": true,
+        "main_intent": "mixed",
+        "symptom_query": "血压高",
+        "process_query": "要挂什么科",
+        "need_symptom_search": true,
+        "need_process_search": true,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 7,
+      "question": "胃不舒服想吐",
+      "expected": "symptom",
+      "predicted": "symptom",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": false,
+        "main_intent": "symptom",
+        "symptom_query": "胃不舒服想吐",
+        "process_query": null,
+        "need_symptom_search": true,
+        "need_process_search": false,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 8,
+      "question": "皮肤起疹子很痒",
+      "expected": "symptom",
+      "predicted": "symptom",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": false,
+        "main_intent": "symptom",
+        "symptom_query": "皮肤起疹子很痒",
+        "process_query": null,
+        "need_symptom_search": true,
+        "need_process_search": false,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 9,
+      "question": "牙疼得厉害",
+      "expected": "symptom",
+      "predicted": "symptom",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": false,
+        "main_intent": "symptom",
+        "symptom_query": "牙疼得厉害",
+        "process_query": null,
+        "need_symptom_search": true,
+        "need_process_search": false,
+        "need_tool_call": false
+      }
+    },
+    {
+      "id": 10,
+      "question": "眼睛红肿流泪",
+      "expected": "symptom",
+      "predicted": "symptom",
+      "correct": true,
+      "raw_intent": {
+        "has_symptom": true,
+        "has_process": false,
+        "main_intent": "symptom",
+        "symptom_query": "眼睛红肿流泪",
+        "process_query": null,
+        "need_symptom_search": true,
+        "need_process_search": false,
+        "need_tool_call": false
+      }
+    }
+  ],
+  "intent_distribution": {
+    "mixed": 2,
+    "symptom": 8
+  }
+}
