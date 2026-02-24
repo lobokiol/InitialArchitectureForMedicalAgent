@@ -5,6 +5,7 @@
 后端通过 LangGraph 状态机编排多轮对话、症状问诊、流程检索与意图识别，前端则以 CLI 形式演示多会话聊天体验（类似 ChatGPT 的会话列表）。
 
 ---
+<img src="./demo/web页面展示.gif" width="50%" />
 <img src="./demo/demo.gif" width="50%" />
 ## 功能特性
 
