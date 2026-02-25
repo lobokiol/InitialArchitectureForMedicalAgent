@@ -41,7 +41,7 @@ MAX_HISTORY_MSGS: int = int(os.getenv("MAX_HISTORY_MSGS", "12"))
 TRIM_TRIGGER_MSGS: int = int(os.getenv("TRIM_TRIGGER_MSGS", "24"))
 
 # Model defaults
-CHAT_MODEL_NAME = os.getenv("CHAT_MODEL_NAME", "qwen-flash")
+CHAT_MODEL_NAME = os.getenv("CHAT_MODEL_NAME", "qwen3-max")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-v2")
 CHAT_BASE_URL = os.getenv("CHAT_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
