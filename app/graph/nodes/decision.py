@@ -15,12 +15,14 @@ DECISION_PROMPT = """
     - has_process: bool - 用户是否在询问如何做某事（如"怎么办"、"怎么治疗"、"如何减小"）
     - main_intent: "symptom" | "process" | "mixed" | "non_medical"
     - symptom_query: string 或 null - 从问题中提取的症状描述
-    - process_query: string 或 null - 从问题中提取的操作请求（如"怎么减小"、"如何治疗"）
+    - process_query: string 或 null - 从问题中提取的操作请求（如"怎么减小"、"如何治疗""）
     - need_symptom_search: bool
     - need_process_search: bool
+    - need_tool_call: bool - 用户是否在询问特定患者的病例信息（如"张三的病例"、"患者001的情况"）
 
     判断规则：
     - 如果用户问"怎么XX"、"如何XX"、"怎么办"，即使同时描述了症状，也应设置has_process=True
+    - 如果用户询问具体患者的名字或ID的病例（如"张三的病例"、"患者001"），设置need_tool_call=true
     - symptom_query应提取症状本身（如"肚子大"）
     - process_query应提取操作意图（如"怎么减小"）
 
@@ -53,6 +55,21 @@ def decision_node(state: AppState) -> dict:
 
     intent.need_symptom_search = intent.has_symptom
     intent.need_process_search = intent.has_process
+
+    # 自动判断是否需要查询患者病例（如果问题中提到具体患者姓名或ID）
+    user_query_lower = user_query.lower()
+    if any(
+        keyword in user_query_lower
+        for keyword in ["病例", "病历", "患者", "的病史", "记录"]
+    ):
+        # 检查是否提到了具体患者（名字或ID）
+        import re
+
+        if re.search(
+            r"[\u4e00-\u9fa5]{2,4}(的病例|病历|病史|记录)|患者\\s*\\d{3,}|\\d{3,}(患者|病例)",
+            user_query,
+        ):
+            intent.need_tool_call = True
 
     logger.info("decision_node intent_result=%s", intent)
     return {"intent_result": intent}

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ChatRequest, ChatResponse, ThreadInfo, UserInfo } from '../types';
+import type { ChatRequest, ChatResponse, ThreadInfo, UserInfo, VerifyPasswordRequest, VerifyPasswordResponse } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -13,6 +13,11 @@ const api = axios.create({
 
 export const chat = async (data: ChatRequest): Promise<ChatResponse> => {
   const response = await api.post<ChatResponse>('/chat', data);
+  return response.data;
+};
+
+export const verifyPassword = async (data: VerifyPasswordRequest): Promise<VerifyPasswordResponse> => {
+  const response = await api.post<VerifyPasswordResponse>('/chat/verify-password', data);
   return response.data;
 };
 

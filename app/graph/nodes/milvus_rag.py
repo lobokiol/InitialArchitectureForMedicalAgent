@@ -2,7 +2,10 @@ from app.core.logging import logger
 from app.domain.models import AppState
 from app.infra.milvus_client import search_medical_docs
 
-
+# 1. Milvus 向量检索 (症状相关)
+# - 索引: HNSW + COSINE 相似度
+# - 参数: TOP_K=15, MIN_SIM=0.5, MAX_DOCS=8
+# - 后处理: 相似度阈值过滤 + 排序截断
 def milvus_rag_node(state: AppState) -> dict:
     logger.info(">>> Enter node: milvus_rag")
     ir = state.intent_result

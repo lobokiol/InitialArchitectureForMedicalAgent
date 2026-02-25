@@ -2,12 +2,12 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from app.core import config
 from app.core.logging import logger
-
+from langfuse import observe
 
 _chat_llm: ChatOpenAI | None = None
 _embedding_model: OpenAIEmbeddings | None = None
 
-
+@observe
 def get_chat_llm() -> ChatOpenAI:
     global _chat_llm
     if _chat_llm is None:

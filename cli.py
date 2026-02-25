@@ -24,7 +24,9 @@ console = Console(theme=custom_theme)
 
 class ChatCLI:
     def __init__(self) -> None:
-        self.base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8000").rstrip("/")
+        self.base_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8000").rstrip(
+            "/"
+        )
         # 默认等久一点（后台可能检索/推理较慢）；可通过 BACKEND_TIMEOUT 调整
         self.timeout = float(os.getenv("BACKEND_TIMEOUT", "120"))
         self.session = requests.Session()
@@ -49,7 +51,9 @@ class ChatCLI:
             console.print(Panel(f"无法连接后端：{exc}", style="warning"))
 
     def _init_user(self) -> None:
-        self.user_id = Prompt.ask("请输入 user_id", default="demo-user", console=console).strip()
+        self.user_id = Prompt.ask(
+            "请输入 user_id", default="demo-user", console=console
+        ).strip()
         name = Prompt.ask("请输入昵称（可留空）", default="", console=console).strip()
         self.user_name = name or None
         payload = {"user_id": self.user_id}
@@ -166,7 +170,7 @@ class ChatCLI:
             for idx, t in enumerate(threads, 1):
                 mark = " (当前)" if t.get("thread_id") == self.thread_id else ""
                 lines.append(
-                    f"{idx}. {t.get('title','未命名')} [{t.get('thread_id')}] - 最近: {t.get('last_active_at')}{mark}"
+                    f"{idx}. {t.get('title', '未命名')} [{t.get('thread_id')}] - 最近: {t.get('last_active_at')}{mark}"
                 )
             console.print(Panel("\n".join(lines), title="会话列表", style="info"))
             return threads
@@ -177,7 +181,10 @@ class ChatCLI:
     def _create_thread(self) -> None:
         if not self.user_id:
             return
-        title = Prompt.ask("新会话标题（可留空）", default="", console=console).strip() or None
+        title = (
+            Prompt.ask("新会话标题（可留空）", default="", console=console).strip()
+            or None
+        )
         payload = {"user_id": self.user_id}
         if title:
             payload["title"] = title
@@ -225,9 +232,14 @@ class ChatCLI:
         if not self.thread_id or not self.user_id:
             console.print(Panel("当前无可删除会话", style="warning"))
             return
-        target = Prompt.ask(
-            f"输入要删除的 thread_id（回车删除当前 {self.thread_id}）", default="", console=console
-        ).strip() or self.thread_id
+        target = (
+            Prompt.ask(
+                f"输入要删除的 thread_id（回车删除当前 {self.thread_id}）",
+                default="",
+                console=console,
+            ).strip()
+            or self.thread_id
+        )
         try:
             resp = self.session.delete(
                 f"{self.base_url}/threads/{target}",
@@ -258,8 +270,15 @@ class ChatCLI:
             console.print(Panel(f"用户信息：{data}", style="info"))
         except requests.RequestException:
             console.print(Panel("获取用户信息失败", style="warning"))
-        if Prompt.ask("更新昵称？(y/n)", choices=["y", "n"], default="n", console=console) == "y":
-            new_name = Prompt.ask("输入新的昵称", default=self.user_name or "", console=console).strip()
+        if (
+            Prompt.ask(
+                "更新昵称？(y/n)", choices=["y", "n"], default="n", console=console
+            )
+            == "y"
+        ):
+            new_name = Prompt.ask(
+                "输入新的昵称", default=self.user_name or "", console=console
+            ).strip()
             payload = {"user_id": self.user_id, "name": new_name}
             try:
                 resp = self.session.post(
@@ -275,7 +294,19 @@ class ChatCLI:
         if not self.user_id:
             console.print(Panel("请先初始化用户", style="warning"))
             return
-        payload = {"user_id": self.user_id, "message": message}
+        self._do_chat(message, password_verified=False, retry_count=0)
+
+    def _do_chat(
+        self, message: str, password_verified: bool = False, retry_count: int = 0
+    ) -> None:
+        if not self.user_id:
+            console.print(Panel("请先初始化用户", style="warning"))
+            return
+        payload = {
+            "user_id": self.user_id,
+            "message": message,
+            "password_verified": password_verified,
+        }
         if self.thread_id:
             payload["thread_id"] = self.thread_id
         console.print(Panel(message, title="你", style="info"))
@@ -299,6 +330,56 @@ class ChatCLI:
                 return
             finally:
                 progress.stop()
+
+        # 检查是否需要密码验证
+        if data.get("need_password_input"):
+            password_prompt = data.get("password_prompt", "请输入密码")
+            current_retry = data.get("password_retry_count", 0)
+            console.print(Panel(password_prompt, style="warning"))
+
+            # 提示用户输入密码
+            password = Prompt.ask("密码", console=console, password=True)
+
+            # 调用密码验证 API
+            verify_payload = {
+                "user_id": self.user_id,
+                "password": password,
+                "retry_count": current_retry,
+            }
+            if self.thread_id:
+                verify_payload["thread_id"] = self.thread_id
+
+            try:
+                resp = self.session.post(
+                    f"{self.base_url}/chat/verify-password",
+                    json=verify_payload,
+                    timeout=self.timeout,
+                )
+                resp.raise_for_status()
+                verify_data = resp.json()
+            except requests.RequestException as exc:
+                console.print(Panel(f"验证请求失败：{exc}", style="warning"))
+                return
+
+            if verify_data.get("success"):
+                console.print(Panel("密码验证成功", style="success"))
+                # 验证成功，重新发送消息
+                self._do_chat(message, password_verified=True, retry_count=0)
+            else:
+                console.print(
+                    Panel(verify_data.get("message", "密码错误"), style="error")
+                )
+                if verify_data.get("locked"):
+                    console.print(Panel("密码错误次数过多，查询已结束", style="error"))
+                else:
+                    # 允许重试
+                    self._do_chat(
+                        message,
+                        password_verified=False,
+                        retry_count=verify_data.get("retry_count", 0),
+                    )
+            return
+
         self.thread_id = data.get("thread_id") or self.thread_id
         reply = data.get("reply", "")
         console.print(Panel(Markdown(reply), title="助手", style="success"))
@@ -323,7 +404,7 @@ class ChatCLI:
                 continue
             top = docs[:3]
             doc_lines = [
-                f"- {d.get('title','无标题')} ({d.get('source','未知来源')}) score={d.get('score')}"
+                f"- {d.get('title', '无标题')} ({d.get('source', '未知来源')}) score={d.get('score')}"
                 for d in top
             ]
             parts.append(f"[{key}] \n" + "\n".join(doc_lines))

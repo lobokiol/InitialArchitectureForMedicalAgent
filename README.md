@@ -172,11 +172,11 @@ CLI 相关：
 ```bash
 # Redis（含 RedisJSON/RedisSearch）
 cd demo/redis
-docker-compose up -d
+docker compose up -d
 
 # Elasticsearch + Milvus（单机，内置 Etcd/MinIO）
 cd ../es_milvus_DB
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 2. 安装依赖

@@ -2,6 +2,21 @@ export interface ChatRequest {
   user_id: string;
   thread_id?: string;
   message: string;
+  password_verified?: boolean;
+}
+
+export interface VerifyPasswordRequest {
+  user_id: string;
+  thread_id?: string;
+  password: string;
+  retry_count: number;
+}
+
+export interface VerifyPasswordResponse {
+  success: boolean;
+  message: string;
+  retry_count: number;
+  locked: boolean;
 }
 
 export interface RetrievedDoc {
@@ -34,6 +49,9 @@ export interface ChatResponse {
   reply: string;
   intent_result?: IntentResult;
   used_docs: UsedDocs;
+  need_password_input?: boolean;
+  password_prompt?: string;
+  password_retry_count?: number;
 }
 
 export interface Message {

@@ -28,10 +28,18 @@ export function LiveDemo() {
     isLoading: chatLoading,
     error: chatError,
     currentThreadId,
+    needPasswordInput,
+    passwordPrompt,
+    passwordRetryCount,
     sendMessage,
+    handlePasswordSubmit: onPasswordSubmit,
+    cancelPasswordInput,
     clearMessages,
     messagesEndRef,
   } = useChat(user?.user_id || null, currentThread?.thread_id || null);
+
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +51,13 @@ export function LiveDemo() {
       openThreadList();
     }
   }, [showModal, user, currentThread, openThreadList]);
+
+  // 监听密码输入需求，弹出密码输入框
+  useEffect(() => {
+    if (needPasswordInput) {
+      setShowPasswordModal(true);
+    }
+  }, [needPasswordInput]);
 
   const handleCommand = async (cmd: string) => {
     const command = cmd.trim().toLowerCase();
@@ -90,6 +105,20 @@ export function LiveDemo() {
 
     await sendMessage(input);
     setInput('');
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordInput.trim()) return;
+    await onPasswordSubmit(passwordInput);
+    setPasswordInput('');
+    setShowPasswordModal(false);
+  };
+
+  const handlePasswordCancel = () => {
+    setShowPasswordModal(false);
+    setPasswordInput('');
+    cancelPasswordInput();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -334,6 +363,71 @@ export function LiveDemo() {
         isOpen={showHelp}
         onClose={() => setShowHelp(false)}
       />
+
+      {/* 密码输入模态框 */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={handlePasswordCancel}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">密码验证</h3>
+                <p className="text-gray-600 text-sm">{passwordPrompt || '查看病例需要密码验证'}</p>
+                {passwordRetryCount > 0 && (
+                  <p className="text-red-500 text-sm mt-2">密码错误，请重试</p>
+                )}
+              </div>
+              
+              <form onSubmit={handlePasswordSubmit}>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="请输入密码"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 outline-none transition-all mb-4"
+                  autoFocus
+                />
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePasswordCancel}
+                    className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!passwordInput.trim() || chatLoading}
+                    className="flex-1 px-4 py-3 bg-yellow-500 text-white font-medium rounded-xl hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {chatLoading ? '验证中...' : '确认'}
+                  </button>
+                </div>
+              </form>
+              
+              <p className="text-center text-gray-400 text-xs mt-4">
+                密码：888
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

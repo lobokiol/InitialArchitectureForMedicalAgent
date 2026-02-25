@@ -1,4 +1,3 @@
-
 from typing import List
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
@@ -30,12 +29,12 @@ ANSWER_PROMPT = """
 回答要求：
 - 优先利用医学文档和流程文档中的信息作答
 - 如果文档中没有涉及、但从对话历史中可以推断（例如用户的自我介绍、之前提过的偏好等），也可以基于历史回答
-- 如果仍然无法回答，要老实说明：“根据现有资料无法确定”
+- 如果仍然无法回答，要老实说明："根据现有资料无法确定"
 """
 
 
 def _fmt_docs(docs: List[RetrievedDoc], max_docs: int = 8) -> str:
-    '''
+    """
         这段代码的功能是格式化文档列表并返回字符串：
 
     1. 若输入为空，返回"（无结果）"
@@ -43,14 +42,11 @@ def _fmt_docs(docs: List[RetrievedDoc], max_docs: int = 8) -> str:
     3. 取前max_docs个文档
     4. 为每个文档生成带编号和分数的字符串
     5. 用换行符连接所有文档字符串并返回
-    '''
+    """
     if not docs:
         return "（无结果）"
 
-    docs_sorted = sorted(
-        docs,
-        key=lambda d: (d.score is None, -(d.score or 0.0))
-    )
+    docs_sorted = sorted(docs, key=lambda d: (d.score is None, -(d.score or 0.0)))
     selected = docs_sorted[:max_docs]
 
     out = []
@@ -59,24 +55,27 @@ def _fmt_docs(docs: List[RetrievedDoc], max_docs: int = 8) -> str:
         out.append(f"- 文档{i}{score_str}: {d.content}")
     return "\n".join(out)
 
+
 def _fmt_tool_result(tool_result) -> str:
     """格式化工具调用结果"""
     if not tool_result:
         return "（无工具调用结果）"
-    
+
     # 直接返回字符串（如果已经是字符串）
     if isinstance(tool_result, str):
         return tool_result
-    
+
     # 如果是字典且包含 messages
     if isinstance(tool_result, dict) and "messages" in tool_result:
         parts = []
         for msg in tool_result["messages"]:
-            if hasattr(msg, 'content'):
+            if hasattr(msg, "content"):
                 parts.append(msg.content)
         return "\n".join(parts)
-    
+
     return str(tool_result)
+
+
 def format_history(messages: list[BaseMessage]) -> str:
     if not messages:
         return "（无历史对话）"
@@ -118,12 +117,17 @@ def answer_generate_node(state: AppState) -> dict:
 
     try:
         result = get_chat_llm().invoke([HumanMessage(content=prompt)])
-        full_content = result.content if isinstance(result, AIMessage) else getattr(result, "content", "")
+        full_content = (
+            result.content
+            if isinstance(result, AIMessage)
+            else getattr(result, "content", "")
+        )
     except Exception:
         logger.exception("answer_generate_node LLM 调用失败，返回兜底回答")
         full_content = "抱歉，当前系统生成答案时出现了问题，请稍后再试。"
 
     return {"messages": [AIMessage(content=full_content)]}
+
 
 # ----------------------------
 # from typing import List, Optional

@@ -9,17 +9,34 @@ def route_after_decision(state: AppState) -> str:
     if not ir:
         logger.info("route_after_decision -> answer_generate (no intent_result)")
         return "answer_generate"
-    
-     # 检查是否需要工具调用
-    if hasattr(ir, 'need_tool_call') and ir.need_tool_call:
+
+    # 检查是否需要工具调用
+    if hasattr(ir, "need_tool_call") and ir.need_tool_call:
         logger.info("route_after_decision -> tool_calling")
         return "tool_calling"
-    
+
     if not ir.has_symptom and not ir.has_process:
         logger.info("route_after_decision -> answer_generate (no symptom & no process)")
         return "answer_generate"
 
     logger.info("route_after_decision -> es_rag")
+    return "es_rag"
+
+
+def route_after_tool_calling(state: AppState) -> str:
+    """tool_calling 节点之后的路由"""
+    logger.info(
+        ">>> route_after_tool_calling: need_password_input=%s",
+        state.need_password_input,
+    )
+
+    # 如果需要密码验证，跳转到 answer_generate（会返回密码提示给前端）
+    if state.need_password_input:
+        logger.info("route_after_tool_calling -> answer_generate (need password)")
+        return "answer_generate"
+
+    # 密码已验证，执行 MCP 查询后继续 ES 检索
+    logger.info("route_after_tool_calling -> es_rag (password verified)")
     return "es_rag"
 
 
@@ -45,7 +62,9 @@ def route_after_docs(state: AppState) -> str:
     )
 
     if state.rewrite_attempts >= MAX_REWRITE:
-        logger.info("route_after_docs -> answer_generate (rewrite_attempts >= MAX_REWRITE)")
+        logger.info(
+            "route_after_docs -> answer_generate (rewrite_attempts >= MAX_REWRITE)"
+        )
         return "answer_generate"
 
     if r and r.can_answer_overall:

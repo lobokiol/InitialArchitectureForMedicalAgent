@@ -1,83 +1,104 @@
-from app.graph.nodes.patient_tools import get_patient_history, get_patient_by_id
 from app.core.llm import get_chat_llm
-from langchain_core.messages import HumanMessage
 from typing import Any, Dict
-from langgraph.prebuilt import ToolNode
-from app.core.llm import get_chat_llm
 from app.core.logging import logger
-from app.domain.models import AppState
-from app.tools.patient_tools import get_patient_history, get_patient_by_id
-import json
-from app.domain.models import RetrievedDoc
-# 创建工具列表
-tools = [get_patient_history, get_patient_by_id]
-# 创建 ToolNode
-tool_node = ToolNode(tools)
-# 带工具的 LLM
-llm_with_tools = get_chat_llm().bind_tools(tools)
+from app.domain.models import AppState, RetrievedDoc
+from app.mcp.client import get_patient_history_mcp, get_patient_by_id_mcp
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_patient_history",
+            "description": "根据患者姓名查询病例历史信息",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "patient_name": {"type": "string", "description": "患者姓名"}
+                },
+                "required": ["patient_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_patient_by_id",
+            "description": "根据患者ID查询病例信息",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "patient_id": {"type": "string", "description": "患者ID"}
+                },
+                "required": ["patient_id"],
+            },
+        },
+    },
+]
+
+llm_with_tools = get_chat_llm().bind_tools(TOOLS)
+
+
+def _execute_mcp_tool(tool_name: str, arguments: dict) -> str:
+    if tool_name == "get_patient_history":
+        return get_patient_history_mcp(arguments.get("patient_name", ""))
+    elif tool_name == "get_patient_by_id":
+        return get_patient_by_id_mcp(arguments.get("patient_id", ""))
+    return ""
+
+
+MAX_PASSWORD_RETRIES = 2
+
+
 def tool_calling_node(state: AppState) -> Dict[str, Any]:
-    """工具调用节点 - 判断是否需要调用工具并执行"""
+    """工具调用节点 - 判断是否需要调用工具并执行(MCP方式)"""
     logger.info(">>> Enter node: tool_calling")
-    
+    logger.info("tool_calling: password_verified=%s", state.password_verified)
+
+    # 检查密码验证状态（每次查询都需要验证）
+    # 如果 password_verified=True（验证成功后的请求），则跳过密码检查
+    if not state.password_verified:
+        logger.info("tool_calling: 需要密码验证")
+        return {
+            "need_password_input": True,
+            "password_prompt": "查看病例需要密码验证，请输入密码（888）",
+            "password_retry_count": state.password_retry_count,
+            # 重要：重置密码验证状态，避免从 checkpointer 恢复的状态影响
+            "password_verified": False,
+        }
+
+    # 密码已验证，执行 MCP 查询
+    logger.info("tool_calling: 密码已验证，执行查询")
+
     query = state.messages[-1].content
-    
-    # 让 LLM 判断是否需要调用工具
+
     result = llm_with_tools.invoke(query)
-    
-    # 检查是否有工具调用
+
     if not result.tool_calls:
         logger.info("tool_calling: 无需调用工具")
-        return {"need_tool_call": False}
-    
+        return {
+            "need_tool_call": False,
+            "need_password_input": False,
+        }
+
     logger.info("tool_calling: 需要调用工具 %s", result.tool_calls)
-    
-    # 执行工具调用
-    tool_result = tool_node.invoke({"messages": [result]})
-    # 将 ToolMessage 转换为字符串
+
     tool_result_str = ""
-    if tool_result and "messages" in tool_result:
-        for msg in tool_result["messages"]:
-            if hasattr(msg, 'content'):
-                tool_result_str += msg.content + "\n"
-    else:
-        tool_result_str = str(tool_result)
+    for tool_call in result.tool_calls:
+        tool_name = tool_call["name"]
+        arguments = tool_call.get("args", {})
+        result_str = _execute_mcp_tool(tool_name, arguments)
+        tool_result_str += result_str + "\n"
+
     return {
         "need_tool_call": True,
+        "need_password_input": False,
         "medical_docs": [
             RetrievedDoc(
                 id="tool_call",
                 source="tool",
                 title="患者病例查询结果",
                 content=tool_result_str,
-                score=1.0
+                score=1.0,
             )
-        ]
+        ],
     }
-
-
-# def check_if_need_tools(state: AppState) -> dict:
-#     """
-#     判断是否需要调用工具
-#     """
-#     llm_with_tools = get_chat_llm().bind_tools([get_patient_history, get_patient_by_id])
-    
-#     query = state.messages[-1].content
-    
-#     # 判断是否需要查询病例
-#     result = llm_with_tools.invoke([
-#         HumanMessage(content=f"判断以下问题是否需要查询患者病历：{query}")
-#     ])
-    
-#     # 如果有工具调用，返回需要调用工具
-#     if result.tool_calls:
-#         return {"need_tool_call": True, "tool_calls": result.tool_calls}
-    
-#     return {"need_tool_call": False}
-# def get_patient_history_node(state: AppState) -> dict:
-#     """
-#     调用工具查询患者病历
-#     """
-#     tool_call = state.tool_calls[0]
-#     patient_id = tool_call.args["patient_id"]
-#     history = get_patient_history(patient_id)
-#     return {"history": history}
