@@ -11,13 +11,17 @@ web页面：
 后端cli-debug：
 
 <img src="./demo/demo.gif" width="50%" />
+
 ## 功能特性
 
 - 医疗导诊对话
   - 支持面向「症状问诊」和「就医流程」的多轮对话。
+  - **多轮问诊系统**：通过槽位填充逐步收集患者症状信息，输出结构化问诊表。
+  - **危险信号检测**：实时检测胸痛、呼吸困难等危急症状，立即告警建议挂急诊。
   - 结合向量检索与流程文档检索，给出答案和建议。
 - Agentic 对话编排（LangGraph）
   - 使用 `AppState` 管理对话状态，基于 LangGraph 构建状态机。
+  - **多Agent协作**：6个专业化Agent节点（意图识别、槽位填充、语义对齐、风险评估、追问生成、结束判断）。
   - 包含意图识别、RAG 检索、文档评估、Query 重写、答案生成等节点。
 - 多会话管理（类似 ChatGPT）
   - 会话列表、创建会话、删除会话、切换当前会话。
@@ -32,6 +36,170 @@ web页面：
 
 ---
 
+## 系统架构图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              用户请求                                            │
+│                         (我肚子疼，还胸痛)                                        │
+└─────────────────────────────────┬───────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         LangGraph 主流程                                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
+│  │trim_history│───▶│ diagnosis   │───▶│ decision    │───▶│answer_generate│    │
+│  │  历史裁剪  │    │  多轮问诊   │    │  意图识别   │    │  答案生成   │     │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘     │
+│                           │                                                        │
+│              ┌────────────┼────────────┐                                         │
+│              ▼            ▼            ▼                                         │
+│       ┌──────────┐  ┌──────────┐  ┌──────────┐                                   │
+│       │ emergency │  │ complete │  │in_progress│                                   │
+│       │  急诊    │  │  完成   │  │  继续   │                                   │
+│       └──────────┘  └──────────┘  └──────────┘                                   │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    ▼                           ▼
+           ┌──────────────┐           ┌──────────────────────┐
+           │  急诊告警    │           │  RAG 检索流程        │
+           │⚠️立即就医    │           │  (ES + Milvus)       │
+           └──────────────┘           └──────────────────────┘
+```
+
+### 多轮问诊流程（diagnosis 节点内部）
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        diagnosis 节点内部流程                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   用户输入: "我肚子疼"                                                       │
+│          │                                                                  │
+│          ▼                                                                  │
+│   ┌─────────────────┐                                                       │
+│   │  slot_fill     │ ← Agent 2: 槽位填充                                    │
+│   │  提取主诉/症状  │   - chief_complaint: "我肚子疼"                      │
+│   └────────┬────────┘   - symptoms: ["腹痛"]                                 │
+│            │            - location: "腹部"                                   │
+│            ▼                                                                  │
+│   ┌─────────────────┐                                                       │
+│   │  normalize     │ ← Agent 3: 语义对齐                                    │
+│   │  口语→医学术语  │   - "肚子疼" → "腹痛"                                │
+│   └────────┬────────┘   - "胸口疼" → "胸痛"                                 │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────┐                                                       │
+│   │  risk_check    │ ← Agent 4: 风险评估                                    │
+│   │  危险信号检测   │   - 检测: 胸痛/呼吸困难/呕血等                        │
+│   └────────┬────────┘                                                       │
+│            │                                                                  │
+│     ┌──────┴──────┐                                                         │
+│     ▼             ▼                                                         │
+│  危险信号      无风险                                                        │
+│     │             │                                                         │
+│     ▼             ▼                                                         │
+│  急诊告警    ┌─────────────────┐                                             │
+│              │  completion    │ ← Agent 6: 结束判断                          │
+│              │  判断是否完成   │   - 槽位已满?                               │
+│              └────────┬────────┘   - 用户结束?                                │
+│                       │         - 轮询上限?                                   │
+│              ┌────────┴────────┐                                              │
+│              ▼                ▼                                              │
+│         完成            进行中                                               │
+│              │                │                                               │
+│              ▼                ▼                                               │
+│       ┌──────────┐    ┌─────────────────┐                                   │
+│       │  输出    │    │  question_gen  │ ← Agent 5: 追问生成                │
+│       │  JSON    │    │  生成下一问题   │   - "这个症状持续多长时间了？"    │
+│       │  问诊表  │    └─────────────────┘   - "疼痛程度如何？0-10分？"      │
+│       └──────────┘                                                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 多轮问诊示例
+
+| 轮次 | 用户输入 | 系统回复 | 填入槽位 |
+|------|---------|---------|---------|
+| 1 | 我肚子疼 | 这个症状持续多长时间了？ | chief_complaint, symptoms, location |
+| 2 | 疼了3天了 | 疼痛程度如何？0-10分？ | duration |
+| 3 | 大概7分疼 | 有没有什么情况下会加重或缓解？ | severity |
+| 4 | 吃完饭更疼 | 有没有伴随其他症状？ | triggers |
+| 5 | 还发烧，恶心 | 以前有过类似症状吗？ | accompanying_symptoms |
+| 6 | 没有 | 问诊完成 | medical_history |
+
+**输出 JSON 问诊表**：
+```json
+{
+  "chief_complaint": "我肚子疼",
+  "symptoms": ["腹痛"],
+  "duration": "3天",
+  "severity": "6-7",
+  "location": "腹部",
+  "triggers": ["进食"],
+  "accompanying_symptoms": ["发热", "恶心"],
+  "medical_history": ["无"],
+  "risk_signals": []
+}
+```
+
+---
+## 三、LangGraph 节点流
+
+核心对话工作流由 `app/graph` + `app/domain` + `app/services` 实现，以 LangGraph 状态机为中心：
+
+```mermaid
+flowchart TD
+    START((START))
+
+    TRIM[trim_history<br/>裁剪历史]
+    DIAGNOSIS[diagnosis<br/>多轮问诊]
+    DECISION[decision<br/>意图识别]
+    TOOL[tool_calling<br/>工具调用/病例查询]
+    ES_RAG[es_rag<br/>流程文档检索]
+    MILVUS_RAG[milvus_rag<br/>症状向量检索]
+    CHECK[check_docs<br/>文档评估]
+    REWRITE[rewrite_question<br/>Query 重写]
+    ANSWER[answer_generate<br/>答案生成]
+    END((END))
+
+    START --> TRIM
+    TRIM --> DIAGNOSIS
+
+    DIAGNOSIS -- 诊断进行中 (in_progress) --> END
+    DIAGNOSIS -- 危险信号 (emergency) --> END
+    DIAGNOSIS -- 诊断完成 (complete) --> DECISION
+
+    DECISION -- 闲聊/非医学 --> ANSWER
+    DECISION -- 病例查询 --> TOOL
+    DECISION -- 流程/症状意图 --> ES_RAG
+
+    TOOL -- 需密码验证 --> ANSWER
+    TOOL -- 密码已验证 --> ES_RAG
+
+    ES_RAG -- 需症状检索 --> MILVUS_RAG
+    ES_RAG -- 仅流程或无症状 --> CHECK
+
+    MILVUS_RAG --> CHECK
+
+    CHECK -- 文档足够 or 不需重写 --> ANSWER
+    CHECK -- 需重写且未超次数 --> REWRITE
+
+    REWRITE --> ES_RAG
+
+    ANSWER --> END
+```
+
+- 节点定义集中在 `app/graph/nodes/*`。
+- 路由逻辑集中在 `app/domain/routing.py`。
+- 图的构建与编译在 `app/graph/builder.py`，通过 Redis Checkpoint 将 `AppState` 持久化，实现有状态对话。
+
+---
 ## 项目结构
 
 ```text
@@ -49,9 +217,27 @@ app/
   domain/
     models.py              # AppState、IntentResult、RetrievedDoc 等领域模型
     routing.py             # LangGraph 节点路由决策
+    diagnosis/             # 多轮问诊系统 ★新增★
+      slots.py             # 槽位定义
+      risk.py              # 危险信号检测
+      questions.py         # 追问模板
+      filler.py            # 槽位填充逻辑
   graph/
     builder.py             # LangGraph 状态机构建与编译
-    nodes/                 # 各种节点：decision / es_rag / milvus_rag / ...
+    nodes/                 # 各种节点
+      decision.py          # 意图识别
+      es_rag.py           # 流程文档检索（ES）
+      milvus_rag.py        # 症状向量检索（Milvus）
+      check_docs.py        # 检索结果评估
+      rewrite.py           # Query 重写
+      answer.py            # 答案生成
+      trim_history.py      # 历史裁剪
+      diagnosis.py         # ★新增★ 主编排器
+      slot_fill.py         # ★新增★ Agent 2: 槽位填充
+      normalize.py         # ★新增★ Agent 3: 语义对齐
+      risk_check.py        # ★新增★ Agent 4: 风险评估
+      question_gen.py      # ★新增★ Agent 5: 追问生成
+      completion.py        # ★新增★ Agent 6: 结束判断
   infra/
     redis_client.py        # Redis 连接 & LangGraph RedisSaver
     es_client.py           # Elasticsearch 客户端封装
@@ -159,6 +345,11 @@ CLI 相关：
 - `BACKEND_BASE_URL`：CLI 连接的后端地址，默认 `http://localhost:8000`。
 - `BACKEND_TIMEOUT`：CLI 请求超时时间（秒），默认 `120`。
 
+多轮问诊相关 ★新增★：
+
+- `DIAGNOSIS_MAX_QUESTIONS`：最大追问轮数，默认 `10`。
+- `DIAGNOSIS_SESSION_TTL`：问诊状态缓存时间（秒），默认 `3600`。
+
 ---
 
 ## 本地开发与运行（含 RAG 入库）
@@ -239,13 +430,19 @@ python cli.py
 仅列出核心接口，详细字段可通过代码或自动文档（FastAPI Swagger）查看。
 
 - `POST /chat`
-  - 请求体：`{ user_id: string, thread_id?: string, message: string }`
+  - 请求体：`{ user_id: string, thread_id?: string, message: string, password_verified?: boolean }`
   - 响应体（简化）：  
     - `user_id`: 用户 ID  
     - `thread_id`: 当前会话 ID  
     - `reply`: 助手回复文本（Markdown）  
     - `intent_result`: 意图识别结果（是否为症状/流程/混合等）  
     - `used_docs.medical` / `used_docs.process`: 本轮使用到的文档列表
+    - `diagnosis`: 多轮问诊信息 ★新增★
+      - `type`: 问诊阶段（in_progress / complete / emergency）
+      - `completed`: 是否完成
+      - `slots`: 已填充的槽位（JSON 问诊表）
+      - `risk_signals`: 检测到的危险信号
+      - `risk_level`: 风险等级（none / warning / critical）
 
 - `GET /threads?user_id=...`
 - `POST /threads`
