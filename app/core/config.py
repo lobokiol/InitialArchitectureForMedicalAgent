@@ -41,10 +41,14 @@ MAX_HISTORY_MSGS: int = int(os.getenv("MAX_HISTORY_MSGS", "12"))
 TRIM_TRIGGER_MSGS: int = int(os.getenv("TRIM_TRIGGER_MSGS", "24"))
 
 # Model defaults
-CHAT_MODEL_NAME = os.getenv("CHAT_MODEL_NAME", "qwen3-max")
+CHAT_MODEL_NAME = os.getenv("CHAT_MODEL_NAME", "qwen3-max")  # qwen-turbo qwen3-max
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-v2")
-CHAT_BASE_URL = os.getenv("CHAT_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-EMBEDDING_BASE_URL = os.getenv("EMBEDDING_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+CHAT_BASE_URL = os.getenv(
+    "CHAT_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+)
+EMBEDDING_BASE_URL = os.getenv(
+    "EMBEDDING_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+)
 
 # Misc
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "60"))
@@ -55,3 +59,6 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.0"))
 LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
 LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
 LANGFUSE_BASE_URL: str = os.getenv("LANGFUSE_BASE_URL", "http://localhost:3000")
+
+DIAGNOSIS_MAX_QUESTIONS: int = int(os.getenv("DIAGNOSIS_MAX_QUESTIONS", "10"))
+DIAGNOSIS_SESSION_TTL: int = int(os.getenv("DIAGNOSIS_SESSION_TTL", "3600"))

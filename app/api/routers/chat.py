@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import asyncio
 from fastapi import APIRouter
@@ -39,6 +39,18 @@ class UsedDocs(BaseModel):
     process: List[RetrievedDoc] = []
 
 
+class DiagnosisInfo(BaseModel):
+    type: str = "in_progress"
+    completed: bool = False
+    terminated: bool = False
+    termination_reason: Optional[str] = None
+    slots: dict = {}
+    risk_level: str = "none"
+    risk_signals: List[str] = []
+    question_count: int = 0
+    missing_slots: List[str] = []
+
+
 class ChatResponse(BaseModel):
     user_id: str
     thread_id: str
@@ -48,6 +60,7 @@ class ChatResponse(BaseModel):
     need_password_input: bool = False
     password_prompt: str = ""
     password_retry_count: int = 0
+    diagnosis: Optional[DiagnosisInfo] = None
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])

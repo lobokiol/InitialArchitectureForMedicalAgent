@@ -1,11 +1,11 @@
-from typing import List, Optional, Literal, Annotated
+from typing import List, Optional, Literal, Annotated, Any
 
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from app.core import config
-from typing import List, Optional, Literal, Annotated, Any
+from app.domain.diagnosis.slots import DiagnosisSlots
 
 
 class IntentResult(BaseModel):
@@ -37,7 +37,7 @@ class IntentResult(BaseModel):
 
 
 class RetrievedDoc(BaseModel):
-    """从向量数据库或工具调用中检索到的文档"""
+    """从向量数据库或工具调用中检索到的文档，放到AppState实例里"""
 
     id: str = ""
     source: Literal["medical", "process", "tool"] = "medical"
@@ -49,7 +49,7 @@ class RetrievedDoc(BaseModel):
 
 
 class RelevanceResult(BaseModel):
-    """LLM 判断检索到的文档与用户问题的相关性结果"""
+    """LLM 判断检索到的文档与用户问题的相关性结果，放到AppState实例里"""
 
     can_answer_overall: bool = False
     need_rewrite_symptom: bool = False
@@ -70,10 +70,21 @@ class AppState(BaseModel):
     rewrite_attempts: int = 0
     need_tool_call: bool = False
     tool_call_result: Any = None
-    password_verified: bool = False
+    password_verified: bool = False  # 如果以后不需要密码，请修改此处
     password_retry_count: int = 0
     need_password_input: bool = False
     password_prompt: str = "查看病例需要密码验证，请输入密码（888）"
+
+    diagnosis_slots: Optional[DiagnosisSlots] = None
+    diagnosis_risk_level: str = "none"
+    diagnosis_risk_signals: List[str] = Field(default_factory=list)
+    diagnosis_completed: bool = False
+    diagnosis_terminated: bool = False
+    diagnosis_termination_reason: Optional[str] = None
+    diagnosis_next_question: str = ""
+    diagnosis_question_count: int = 0
+    diagnosis_missing_slots: List[str] = Field(default_factory=list)
+    diagnosis_type: str = "in_progress"
 
     @field_validator("medical_docs", mode="before")
     @classmethod

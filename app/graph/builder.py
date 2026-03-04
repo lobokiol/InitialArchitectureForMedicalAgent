@@ -14,12 +14,25 @@ from app.graph.nodes.check_docs import check_docs_node
 from app.graph.nodes.rewrite import rewrite_question
 from app.graph.nodes.answer import answer_generate_node
 from app.graph.nodes.trim_history import trim_history_node
-from app.graph.nodes.tool_calling import tool_calling_node  # 新增
+from app.graph.nodes.tool_calling import tool_calling_node
+from app.graph.nodes.diagnosis import diagnosis_node
+
+
+def route_after_diagnosis(state: AppState) -> str:
+    """诊断节点之后的路由"""
+    if state.diagnosis_type == "emergency":
+        return "emergency"
+    if state.diagnosis_type == "complete":
+        return "decision"
+    if state.diagnosis_type == "in_progress":
+        return "question_end"
+    return "answer_generate"
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(AppState)
 
+    graph.add_node("diagnosis", diagnosis_node)
     graph.add_node("decision", decision_node)
     graph.add_node("tool_calling", tool_calling_node)
     graph.add_node("es_rag", es_rag_node)
@@ -28,8 +41,20 @@ def build_graph() -> StateGraph:
     graph.add_node("rewrite_question", rewrite_question)
     graph.add_node("answer_generate", answer_generate_node)
     graph.add_node("trim_history", trim_history_node)
+
     graph.add_edge(START, "trim_history")
-    graph.add_edge("trim_history", "decision")
+    graph.add_edge("trim_history", "diagnosis")
+
+    graph.add_conditional_edges(
+        "diagnosis",
+        route_after_diagnosis,
+        {
+            "emergency": END,
+            "decision": "decision",
+            "question_end": END,
+            "answer_generate": "answer_generate",
+        },
+    )
 
     graph.add_conditional_edges(
         "decision",
