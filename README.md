@@ -36,62 +36,6 @@ web页面：
 
 ---
 
-## 系统架构图
-
----
-config:
-  layout: dagre
----
-flowchart TB
-    START(("开始")) --> TRIM["trim_history<br>裁剪历史"]
-    TRIM --> DECISION{"意图拆解与路由<br>Router/Splitter"}
-
-    %% 并行支路 1: 办事引导 (Fast Track)
-    DECISION -- "含有 办事/导航" --> ES_RAG["es_rag<br>医院流程文档检索"]
-
-    %% 并行支路 2: 医疗诊断 (Main Track)
-    DECISION -- "含有 症状/看病" --> DIAGNOSIS{"diagnosis<br>多轮问诊 Agent"}
-    
-    %% 诊断内部循环
-    DIAGNOSIS -- "需要参考既往数据" --> TOOL["tool_calling<br>工具调用层"]
-    TOOL -- "返回病历/检查结果" --> DIAGNOSIS
-    TOOL <--> n1["mock病历库"]
-
-    %% 紧急情况 (最高优先级)
-    DIAGNOSIS -- "危急重症 (紧急)" --> EMERGENCY_PROCESS["紧急干预预案<br>(触发拦截器)"]
-    EMERGENCY_PROCESS -- "1.急救指令" --> AGGREGATOR
-    EMERGENCY_PROCESS -- "2.人工通知" --> HIL["Human-in-the-loop"]
-
-    %% 正常诊断流转
-    DIAGNOSIS -- "诊断完成 (信息充足)" --> MILVUS_RAG["milvus_rag<br>相似病例检索"]
-    DIAGNOSIS -- "进行中 (需要继续提问)" --> AGGREGATOR
-
-    %% 结果汇总点 (关键节点)
-    ES_RAG --> AGGREGATOR(("信息聚合中心<br>Aggregator"))
-    MILVUS_RAG --> AGGREGATOR
-
-    %% 质量评估与生成
-    AGGREGATOR --> CHECK{"内容评估<br>check_docs"}
-    CHECK -- "信息缺失需重试" --> REWRITE["rewrite_question<br>Query 重写"]
-    REWRITE --> DECISION
-    
-    CHECK -- "信息充分" --> ANSWER["answer_generate<br>多任务合一生成"]
-    ANSWER --> END(("结束"))
-    HIL --> END
-    DECISION -- "仅闲聊" --> END
-
-    %% 样式美化
-    style DECISION fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
-    style AGGREGATOR fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style DIAGNOSIS fill:#ffe0b2,stroke:#f57c00,stroke-width:2px
-    style TOOL fill:#d1c4e9,stroke:#512da8,stroke-width:2px
-    style EMERGENCY_PROCESS fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
-    style HIL fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px,stroke-dasharray:5 5
-
-    %% 连线高亮
-    linkStyle 5 stroke:#ff0000,stroke-width:2px,color:red,fill:none
-    linkStyle 6 stroke:#ff0000,stroke-width:2px,color:red,fill:none
-    linkStyle 7 stroke:#b71c1c,stroke-width:3px,color:#b71c1c,fill:none
 
 ### 多轮问诊流程（diagnosis 节点内部）
 
@@ -177,51 +121,51 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    START((START))
+START([START])
+TRIM[trim_history<br/>裁剪历史]
+DECISION[decision<br/>意图识别]
+DIAGNOSIS[diagnosis<br/>多轮问诊]
+TOOL[tool_calling<br/>工具调用/病例查询]
+ES_RAG[es_rag<br/>流程文档检索]
+MILVUS_RAG[milvus_rag<br/>症状向量检索]
+CHECK[check_docs<br/>文档评估]
+REWRITE[rewrite_question<br/>Query 重写]
+ANSWER[answer_generate<br/>答案生成]
+EMERGENCY[emergency<br/>紧急干预]
+HIL[Human-in-the-loop<br/>人工介入]
+END([END])
 
-    TRIM[trim_history<br/>裁剪历史]
-    DIAGNOSIS[diagnosis<br/>多轮问诊]
-    DECISION[decision<br/>意图识别]
-    TOOL[tool_calling<br/>工具调用/病例查询]
-    ES_RAG[es_rag<br/>流程文档检索]
-    MILVUS_RAG[milvus_rag<br/>症状向量检索]
-    CHECK[check_docs<br/>文档评估]
-    REWRITE[rewrite_question<br/>Query 重写]
-    ANSWER[answer_generate<br/>答案生成]
-    END((END))
+START --> TRIM
+TRIM --> DECISION
 
-    START --> TRIM
-    TRIM --> DIAGNOSIS
+DECISION -- 闲聊/非医学 --> ANSWER
+DECISION -- 看病/症状 --> DIAGNOSIS
+DECISION -- 办事/导航 --> ES_RAG
 
-    DIAGNOSIS -- 诊断进行中 (in_progress) --> END
-    DIAGNOSIS -- 危险信号 (emergency) --> END
-    DIAGNOSIS -- 诊断完成 (complete) --> DECISION
+DIAGNOSIS -- 进行中 --> END
+DIAGNOSIS -- emergency --> EMERGENCY
+EMERGENCY --> HIL
+HIL --> END
+DIAGNOSIS -- 需查病历 --> TOOL
+TOOL --> DIAGNOSIS
+DIAGNOSIS -- complete --> MILVUS_RAG
 
-    DECISION -- 闲聊/非医学 --> ANSWER
-    DECISION -- 病例查询 --> TOOL
-    DECISION -- 流程/症状意图 --> ES_RAG
+ES_RAG --> DIAGNOSIS
+MILVUS_RAG --> CHECK
+CHECK -- 文档足够 --> ANSWER
+CHECK -- 需重写 --> REWRITE
+REWRITE --> ES_RAG
+ANSWER --> END
 
-    TOOL -- 需密码验证 --> ANSWER
-    TOOL -- 密码已验证 --> ES_RAG
-
-    ES_RAG -- 需症状检索 --> MILVUS_RAG
-    ES_RAG -- 仅流程或无症状 --> CHECK
-
-    MILVUS_RAG --> CHECK
-
-    CHECK -- 文档足够 or 不需重写 --> ANSWER
-    CHECK -- 需重写且未超次数 --> REWRITE
-
-    REWRITE --> ES_RAG
-
-    ANSWER --> END
+style DECISION fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
+style DIAGNOSIS fill:#ffe0b2,stroke:#f57c00,stroke-width:2px
+style TOOL fill:#d1c4e9,stroke:#512da8,stroke-width:2px
+style EMERGENCY fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
+style HIL fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
 ```
 
-- 节点定义集中在 `app/graph/nodes/*`。
-- 路由逻辑集中在 `app/domain/routing.py`。
-- 图的构建与编译在 `app/graph/builder.py`，通过 Redis Checkpoint 将 `AppState` 持久化，实现有状态对话。
+> **说明**：「进行中」表示问诊未完成，本轮结束返回用户下一轮输入。LangGraph 会从 Redis 恢复槽位状态，DECISION 重新进入 DIAGNOSIS 继续追问。
 
----
 ## 项目结构
 
 ```text
