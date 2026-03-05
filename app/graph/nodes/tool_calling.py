@@ -24,20 +24,9 @@ MAX_PASSWORD_RETRIES = 2
 def tool_calling_node(state: AppState) -> Dict[str, Any]:
     """工具调用节点 - 判断是否需要调用工具并执行(MCP方式)"""
     logger.info(">>> Enter node: tool_calling")
-    logger.info("tool_calling: password_verified=%s", state.password_verified)
 
-    # 检查密码验证状态（每次查询都需要验证）
-    # 如果 password_verified=True（验证成功后的请求），则跳过密码检查
-    if not state.password_verified:
-        logger.info("tool_calling: 需要密码验证")
-        return {
-            "need_password_input": True,
-            "password_prompt": "查看病例需要密码验证，请输入密码（888）",
-            "password_retry_count": state.password_retry_count,
-        }
-
-    # 密码已验证，执行 MCP 查询
-    logger.info("tool_calling: 密码已验证，执行查询")
+    # 直接执行 MCP 查询（移除密码验证）
+    logger.info("tool_calling: 执行查询")
 
     query = state.messages[-1].content
 
