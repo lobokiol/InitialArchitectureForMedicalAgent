@@ -60,8 +60,6 @@ def build_graph() -> StateGraph:
         },
     )
 
-    graph.add_edge("decision", "diagnosis")
-
     graph.add_edge("diagnosis", "diagnosis_router")
 
     graph.add_conditional_edges(
