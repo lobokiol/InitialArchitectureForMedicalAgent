@@ -76,9 +76,6 @@ def build_graph() -> StateGraph:
     graph.add_edge("emergency", "hil")
     graph.add_edge("hil", END)
 
-    graph.add_edge("diagnosis", "tool_calling")
-    graph.add_edge("tool_calling", "diagnosis")
-
     graph.add_edge("es_rag", "diagnosis")
 
     graph.add_conditional_edges(
