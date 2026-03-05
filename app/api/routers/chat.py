@@ -1,7 +1,9 @@
-from typing import Optional, List, Any
+from typing import Optional, List, AsyncGenerator
 
 import asyncio
+import json
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.domain.models import IntentResult, RetrievedDoc
@@ -12,7 +14,7 @@ class ChatRequest(BaseModel):
     user_id: str
     thread_id: Optional[str] = None
     message: str
-    password_verified: bool = False
+    password_verified: bool = True
 
 
 class VerifyPasswordRequest(BaseModel):
@@ -107,3 +109,40 @@ async def chat_endpoint(body: ChatRequest):
         body.password_verified,
     )
     return result
+
+
+@router.post("/stream")
+async def chat_stream_endpoint(body: ChatRequest):
+    """流式输出接口 - Server-Sent Events"""
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        """生成 SSE 格式的事件流"""
+        try:
+            # 调用流式服务
+            async for chunk in chat_service.chat_stream(
+                body.user_id,
+                body.thread_id,
+                body.message,
+                body.password_verified,
+            ):
+                # 每个 chunk 是一个字典，包含 token 或其他信息
+                yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+
+            # 发送结束标记
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            # 发送错误信息
+            error_chunk = {"error": str(e), "type": "error"}
+            yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲
+        },
+    )

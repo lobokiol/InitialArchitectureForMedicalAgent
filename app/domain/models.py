@@ -70,12 +70,13 @@ class AppState(BaseModel):
     rewrite_attempts: int = 0
     need_tool_call: bool = False
     tool_call_result: Any = None
-    password_verified: bool = False  # 如果以后不需要密码，请修改此处
+    password_verified: bool = True  # 默认验证通过
     password_retry_count: int = 0
     need_password_input: bool = False
     password_prompt: str = "查看病例需要密码验证，请输入密码（888）"
 
     diagnosis_slots: Optional[DiagnosisSlots] = None
+    diagnosis_summary: Optional[str] = None  # 新增：诊断总结文本
     diagnosis_risk_level: str = "none"
     diagnosis_risk_signals: List[str] = Field(default_factory=list)
     diagnosis_completed: bool = False
@@ -85,6 +86,7 @@ class AppState(BaseModel):
     diagnosis_question_count: int = 0
     diagnosis_missing_slots: List[str] = Field(default_factory=list)
     diagnosis_type: str = "in_progress"
+    diagnosis_next_step: Optional[str] = None
 
     @field_validator("medical_docs", mode="before")
     @classmethod
