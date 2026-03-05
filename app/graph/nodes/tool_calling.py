@@ -2,38 +2,10 @@ from app.core.llm import get_chat_llm
 from typing import Any, Dict
 from app.core.logging import logger
 from app.domain.models import AppState, RetrievedDoc
-from app.mcp.client import get_patient_history_mcp, get_patient_by_id_mcp
+# from app.mcp.client import get_patient_history_mcp, get_patient_by_id_mcp
 
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_patient_history",
-            "description": "根据患者姓名查询病例历史信息",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "patient_name": {"type": "string", "description": "患者姓名"}
-                },
-                "required": ["patient_name"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_patient_by_id",
-            "description": "根据患者ID查询病例信息",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "patient_id": {"type": "string", "description": "患者ID"}
-                },
-                "required": ["patient_id"],
-            },
-        },
-    },
-]
+# 暂时禁用 MCP 工具调用
+TOOLS = []
 
 llm_with_tools = get_chat_llm().bind_tools(TOOLS)
 
@@ -62,8 +34,6 @@ def tool_calling_node(state: AppState) -> Dict[str, Any]:
             "need_password_input": True,
             "password_prompt": "查看病例需要密码验证，请输入密码（888）",
             "password_retry_count": state.password_retry_count,
-            # 重要：重置密码验证状态，避免从 checkpointer 恢复的状态影响
-            "password_verified": False,
         }
 
     # 密码已验证，执行 MCP 查询
