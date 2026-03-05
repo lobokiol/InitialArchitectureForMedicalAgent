@@ -10,17 +10,23 @@ def route_after_decision(state: AppState) -> str:
         logger.info("route_after_decision -> answer_generate (no intent_result)")
         return "answer_generate"
 
+    # 看病/症状意图 → 多轮问诊
+    if ir.has_symptom:
+        logger.info("route_after_decision -> diagnosis (has_symptom)")
+        return "diagnosis"
+
+    # 办事/导航意图 → ES 检索
+    if ir.has_process:
+        logger.info("route_after_decision -> es_rag (has_process)")
+        return "es_rag"
+
     # 检查是否需要工具调用
     if hasattr(ir, "need_tool_call") and ir.need_tool_call:
         logger.info("route_after_decision -> tool_calling")
         return "tool_calling"
 
-    if not ir.has_symptom and not ir.has_process:
-        logger.info("route_after_decision -> answer_generate (no symptom & no process)")
-        return "answer_generate"
-
-    logger.info("route_after_decision -> es_rag")
-    return "es_rag"
+    logger.info("route_after_decision -> answer_generate (no symptom & no process)")
+    return "answer_generate"
 
 
 def route_after_tool_calling(state: AppState) -> str:

@@ -16,45 +16,39 @@ from app.graph.nodes.answer import answer_generate_node
 from app.graph.nodes.trim_history import trim_history_node
 from app.graph.nodes.tool_calling import tool_calling_node
 from app.graph.nodes.diagnosis import diagnosis_node
+from app.graph.nodes.diagnosis_router import diagnosis_router_node
 
 
-def route_after_diagnosis(state: AppState) -> str:
-    """诊断节点之后的路由"""
-    if state.diagnosis_type == "emergency":
+def route_after_diagnosis_router(state: AppState) -> str:
+    """诊断路由节点之后的路由"""
+    next_step = getattr(state, "diagnosis_next_step", None)
+    if next_step == "emergency":
         return "emergency"
-    if state.diagnosis_type == "complete":
-        return "decision"
-    if state.diagnosis_type == "in_progress":
-        return "question_end"
+    if next_step == "complete":
+        return "milvus_rag"
+    if next_step == "in_progress":
+        return "in_progress"
     return "answer_generate"
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(AppState)
 
-    graph.add_node("diagnosis", diagnosis_node)
+    graph.add_node("trim_history", trim_history_node)
     graph.add_node("decision", decision_node)
+    graph.add_node("diagnosis", diagnosis_node)
+    graph.add_node("diagnosis_router", diagnosis_router_node)
     graph.add_node("tool_calling", tool_calling_node)
     graph.add_node("es_rag", es_rag_node)
     graph.add_node("milvus_rag", milvus_rag_node)
     graph.add_node("check_docs", check_docs_node)
     graph.add_node("rewrite_question", rewrite_question)
     graph.add_node("answer_generate", answer_generate_node)
-    graph.add_node("trim_history", trim_history_node)
+    graph.add_node("emergency", lambda state: state)
+    graph.add_node("hil", lambda state: state)
 
     graph.add_edge(START, "trim_history")
-    graph.add_edge("trim_history", "diagnosis")
-
-    graph.add_conditional_edges(
-        "diagnosis",
-        route_after_diagnosis,
-        {
-            "emergency": END,
-            "decision": "decision",
-            "question_end": END,
-            "answer_generate": "answer_generate",
-        },
-    )
+    graph.add_edge("trim_history", "decision")
 
     graph.add_conditional_edges(
         "decision",
@@ -62,9 +56,33 @@ def build_graph() -> StateGraph:
         {
             "answer_generate": "answer_generate",
             "es_rag": "es_rag",
-            "tool_calling": "tool_calling",
+            "diagnosis": "diagnosis",
         },
     )
+
+    graph.add_edge("decision", "diagnosis")
+
+    graph.add_edge("diagnosis", "diagnosis_router")
+
+    graph.add_conditional_edges(
+        "diagnosis_router",
+        route_after_diagnosis_router,
+        {
+            "emergency": "emergency",
+            "milvus_rag": "milvus_rag",
+            "in_progress": END,
+            "answer_generate": "answer_generate",
+        },
+    )
+
+    graph.add_edge("emergency", "hil")
+    graph.add_edge("hil", END)
+
+    graph.add_edge("diagnosis", "tool_calling")
+    graph.add_edge("tool_calling", "diagnosis")
+
+    graph.add_edge("es_rag", "diagnosis")
+
     graph.add_conditional_edges(
         "tool_calling",
         route_after_tool_calling,
@@ -73,7 +91,7 @@ def build_graph() -> StateGraph:
             "es_rag": "es_rag",
         },
     )
-    # graph.add_edge("tool_calling", "answer_generate")   #  工具调用后生成答案
+
     graph.add_conditional_edges(
         "es_rag",
         route_after_es,
