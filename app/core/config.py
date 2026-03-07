@@ -46,7 +46,10 @@ MAX_HISTORY_MSGS: int = int(os.getenv("MAX_HISTORY_MSGS", "12"))
 TRIM_TRIGGER_MSGS: int = int(os.getenv("TRIM_TRIGGER_MSGS", "24"))
 
 # Model defaults
-CHAT_MODEL_NAME = os.getenv("CHAT_MODEL_NAME", "qwen3-max")  # qwen-turbo qwen3-max
+CHAT_MODEL_NAME = os.getenv("CHAT_MODEL_NAME", "qwen3-max")  # 最终回答生成
+LIGHTWEIGHT_MODEL_NAME = os.getenv(
+    "LIGHTWEIGHT_MODEL_NAME", "qwen-turbo"
+)  # 意图识别、rewrite、rerank等辅助任务
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "text-embedding-v2")
 CHAT_BASE_URL = os.getenv(
     "CHAT_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"

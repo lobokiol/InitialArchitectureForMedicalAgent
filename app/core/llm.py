@@ -2,12 +2,14 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from app.core import config
 from app.core.logging import logger
-from langfuse import observe
+# from langfuse import observe
 
 _chat_llm: ChatOpenAI | None = None
+_lightweight_llm: ChatOpenAI | None = None
 _embedding_model: OpenAIEmbeddings | None = None
 
-@observe
+
+# @observe
 def get_chat_llm() -> ChatOpenAI:
     global _chat_llm
     if _chat_llm is None:
@@ -21,6 +23,21 @@ def get_chat_llm() -> ChatOpenAI:
             max_retries=config.LLM_MAX_RETRIES,
         )
     return _chat_llm
+
+
+def get_lightweight_llm() -> ChatOpenAI:
+    global _lightweight_llm
+    if _lightweight_llm is None:
+        logger.info("Initializing lightweight ChatOpenAI client")
+        _lightweight_llm = ChatOpenAI(
+            base_url=config.CHAT_BASE_URL,
+            api_key=config.DASHSCOPE_API_KEY,
+            model=config.LIGHTWEIGHT_MODEL_NAME,
+            temperature=config.LLM_TEMPERATURE,
+            timeout=config.LLM_TIMEOUT,
+            max_retries=config.LLM_MAX_RETRIES,
+        )
+    return _lightweight_llm
 
 
 def get_embedding_model() -> OpenAIEmbeddings:

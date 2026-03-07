@@ -3,7 +3,7 @@ from typing import List
 from langchain_core.messages import HumanMessage
 
 from app.core.logging import logger
-from app.core.llm import get_chat_llm
+from app.core.llm import get_lightweight_llm
 from app.domain.models import AppState, RetrievedDoc, RelevanceResult
 
 
@@ -41,12 +41,9 @@ process_query: {process_query}
 
 def _fmt_docs(docs: List[RetrievedDoc], max_docs: int = 8) -> str:
     if not docs:
-        return "（无结果）"
+        return "（无结果）"  # 输入无关的query时，ES可能完全没有结果，这时直接返回提示文本，避免LLM输入空列表导致混乱
 
-    docs_sorted = sorted(
-        docs,
-        key=lambda d: (d.score is None, -(d.score or 0.0))
-    )
+    docs_sorted = sorted(docs, key=lambda d: (d.score is None, -(d.score or 0.0)))
 
     selected = docs_sorted[:max_docs]
 
@@ -77,7 +74,7 @@ def check_docs_node(state: AppState) -> dict:
     )
 
     try:
-        structured = get_chat_llm().with_structured_output(RelevanceResult)
+        structured = get_lightweight_llm().with_structured_output(RelevanceResult)
         rr = structured.invoke([HumanMessage(content=prompt)])
     except Exception:
         logger.exception("check_docs_node LLM 调用失败，使用兜底 relevance_result")

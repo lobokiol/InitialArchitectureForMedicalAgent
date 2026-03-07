@@ -1,7 +1,7 @@
 from langchain_core.messages import HumanMessage
 
 from app.core.logging import logger
-from app.core.llm import get_chat_llm
+from app.core.llm import get_lightweight_llm
 from app.domain.models import AppState, MAX_REWRITE
 
 
@@ -33,7 +33,9 @@ def rewrite_question(state: AppState) -> dict:
     attempts = state.rewrite_attempts
 
     if attempts >= MAX_REWRITE:
-        logger.info("rewrite_question: attempts >= MAX_REWRITE, turn off further search")
+        logger.info(
+            "rewrite_question: attempts >= MAX_REWRITE, turn off further search"
+        )
         ir_new = ir.model_copy() if hasattr(ir, "model_copy") else ir.copy(deep=True)
         ir_new.need_symptom_search = False
         ir_new.need_process_search = False
@@ -48,12 +50,20 @@ def rewrite_question(state: AppState) -> dict:
         old_symptom_q = ir_new.symptom_query or user_query
         logger.info("rewrite_question: rewriting symptom_query, old=%s", old_symptom_q)
         try:
-            newq = get_chat_llm().invoke([
-                HumanMessage(content=SYMPTOM_REWRITE_PROMPT.format(
-                    user_query=user_query,
-                    old_query=old_symptom_q,
-                ))
-            ]).content.strip()
+            newq = (
+                get_lightweight_llm()
+                .invoke(
+                    [
+                        HumanMessage(
+                            content=SYMPTOM_REWRITE_PROMPT.format(
+                                user_query=user_query,
+                                old_query=old_symptom_q,
+                            )
+                        )
+                    ]
+                )
+                .content.strip()
+            )
             ir_new.symptom_query = newq
             ir_new.need_symptom_search = True
             logger.info("rewrite_question: new symptom_query=%s", newq)
@@ -67,12 +77,20 @@ def rewrite_question(state: AppState) -> dict:
         old_process_q = ir_new.process_query or user_query
         logger.info("rewrite_question: rewriting process_query, old=%s", old_process_q)
         try:
-            newq = get_chat_llm().invoke([
-                HumanMessage(content=PROCESS_REWRITE_PROMPT.format(
-                    user_query=user_query,
-                    old_query=old_process_q,
-                ))
-            ]).content.strip()
+            newq = (
+                get_lightweight_llm()
+                .invoke(
+                    [
+                        HumanMessage(
+                            content=PROCESS_REWRITE_PROMPT.format(
+                                user_query=user_query,
+                                old_query=old_process_q,
+                            )
+                        )
+                    ]
+                )
+                .content.strip()
+            )
             ir_new.process_query = newq
             ir_new.need_process_search = True
             logger.info("rewrite_question: new process_query=%s", newq)

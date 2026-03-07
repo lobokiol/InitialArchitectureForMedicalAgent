@@ -1,4 +1,4 @@
-from app.core.llm import get_chat_llm
+from app.core.llm import get_lightweight_llm
 from typing import Any, Dict
 from app.core.logging import logger
 from app.domain.models import AppState, RetrievedDoc
@@ -7,7 +7,7 @@ from app.domain.models import AppState, RetrievedDoc
 # 暂时禁用 MCP 工具调用
 TOOLS = []
 
-llm_with_tools = get_chat_llm().bind_tools(TOOLS)
+llm_with_tools = get_lightweight_llm().bind_tools(TOOLS)
 
 
 def _execute_mcp_tool(tool_name: str, arguments: dict) -> str:

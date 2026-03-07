@@ -458,14 +458,37 @@ python cli.py
 
 本项目主要用于展示「生产级医院导诊 Agentic 助手」的整体设计与实现思路，涉及的医学内容仅为技术演示示例，不构成任何医疗建议或诊断依据，请勿用于真实诊疗决策。
 ## 本项目与企业配置对比
-| 系统模块          | 本项目方案（Qwen-only）      | 企业推荐组合（国产私有化）               | 推理设备 |
-| ------------- | --------------------- | --------------------------- | ---- |
-| 意图识别          | Qwen2-1.5B prompt     | Chinese-BERT / ERNIE intent | CPU  |
-| 槽位抽取          | Qwen2-1.5B prompt NER | ERNIE-Med / ChineseBERT-Med | CPU  |
-| Query Rewrite | Qwen2-1.5B            | Qwen2-1.5B / 规则模板           | CPU  |
-| Embedding     | Qwen embedding        | BGE-large-zh                | CPU  |
-| 向量检索          | FAISS                 | Milvus / FAISS              | CPU  |
-| Rerank        | Qwen2-1.5B rerank     | BGE-reranker                | CPU  |
-| RAG答案生成       | Qwen2-7B              | Qwen2-7B / Baichuan2-7B     | GPU  |
-| 会话记忆          | memory buffer         | Redis / PostgreSQL          | CPU  |
+
+| 系统模块 | 本项目方案（DashScope云端） | 企业推荐组合（国产私有化） | 推理设备 | 推荐GPU配置 |
+| -------- | --------------------------- | -------------------------- | -------- | ------------ |
+| 意图识别 | qwen-turbo | Qwen2-3B-Instruct / ERNIE-4.0-8K | CPU | 无需GPU |
+| 槽位抽取 | 规则匹配(filler.py) | Qwen2-3B-Instruct / ERNIE-Med | CPU | 无需GPU |
+| Query Rewrite | qwen-turbo | Qwen2-3B-Instruct | CPU | 无需GPU |
+| 文档相关性检查 | qwen-turbo | Qwen2-3B-Instruct | CPU | 无需GPU |
+| 工具调用 | qwen-turbo | Qwen2-3B-Instruct | CPU | 无需GPU |
+| Embedding向量 | text-embedding-v2 (1536维) | **BGE-m3** (智源) / Jina-embeddings-v2 | CPU | 无需GPU |
+| 向量检索 | Milvus | Milvus / Milvus Cluster | CPU | 无需GPU |
+| Rerank精排 | qwen-turbo | **BGE-reranker-v2-m3** (智源) / Qwen2-7B-Instruct | GPU | RTX 4080 |
+| RAG答案生成 | **qwen3-max** | Qwen2.5-72B-Instruct / ERNIE-4.0-8K | GPU | A100 80G |
+| 会话记忆 | Redis | Redis / PostgreSQL | CPU | 无需GPU |
+
+### 详细企业模型推荐
+
+| 用途 | 推荐模型 | 厂商 | 参数量 | 量化版本 |
+| ---- | -------- | ---- | ------ | -------- |
+| **最终回答** | Qwen2.5-72B-Instruct | 阿里云 | 72B | Q4_K_M |
+| **最终回答(备选)** | ERNIE-4.0-8K | 百度 | - | - |
+| **Rerank** | BGE-reranker-v2-m3 | 智源 | - | FP16 |
+| **Rerank(备选)** | Qwen2-7B-Instruct | 阿里云 | 7B | Q4_K_M |
+| **轻量任务** | Qwen2-3B-Instruct | 阿里云 | 3B | Q4_K_M |
+| **Embedding** | BGE-m3 | 智源 | - | FP16 |
+| **Embedding(备选)** | Jina-embeddings-v2-base-zh | Jina | - | FP16 |
+
+### 企业硬件配置建议
+
+| 方案 | 定位 | CPU | GPU | 内存 | 存储 | 预估并发 |
+| ---- | ---- | ---- | ---- | ---- | ---- | -------- |
+| 入门版 | 50用户内 | Intel Xeon Gold 6430 (32核) | RTX 4080 | 64GB | 2TB NVMe | 50 |
+| 标准版 | 200用户内 | Intel Xeon Gold 6448Y (64核) | A100 40GB | 128GB | 4TB NVMe | 200 |
+| 集群版 | 500+用户 | AMD EPYC 9554 (256核) | A100 80GB x4 | 512GB | 8TB NVMe | 500+ |
 
