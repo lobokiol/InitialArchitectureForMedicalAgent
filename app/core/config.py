@@ -34,6 +34,11 @@ MILVUS_COLLECTION: str = os.getenv("MILVUS_COLLECTION", "medical_knowledge")
 MILVUS_TOP_K: int = int(os.getenv("MILVUS_TOP_K", "15"))
 MILVUS_MIN_SIM: float = float(os.getenv("MILVUS_MIN_SIM", "0.5"))
 MILVUS_MAX_DOCS: int = int(os.getenv("MILVUS_MAX_DOCS", "8"))
+
+# RRF + Rerank 参数（用于 milvus_rag 混合检索）
+RETRIEVAL_K: int = int(os.getenv("RETRIEVAL_K", "50"))  # 每路检索取 top_k
+RRF_K: int = int(os.getenv("RRF_K", "60"))  # RRF 融合参数
+RERANK_TOP_N: int = int(os.getenv("RERANK_TOP_N", "10"))  # Rerank 后返回数量
 MAX_REWRITE: int = int(os.getenv("MAX_REWRITE", "2"))
 
 # Short-term history control

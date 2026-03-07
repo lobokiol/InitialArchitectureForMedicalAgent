@@ -27,8 +27,12 @@ web页面：
   - 会话列表、创建会话、删除会话、切换当前会话。
   - 会话与用户元数据（名称、创建时间、最近活跃时间）存储在 Redis。
 - 检索增强生成（RAG）
-  - Elasticsearch：医院流程 / 制度等结构化文档检索。
-  - Milvus：症状 / 医疗知识向量检索。
+  - Elasticsearch：医院流程 / 制度等结构化文档检索（hospital_procedures 索引）。
+  - Milvus：症状 / 医疗知识向量检索（medical_knowledge 集合）。
+  - **混合检索增强**（milvus_rag 节点）：
+    - 双路检索：ES (rag_es) + Milvus (medical_knowledge)
+    - RRF (Reciprocal Rank Fusion) 融合排序
+    - LLM (qwen-turbo) Rerank 精排
   - DashScope Embedding + Chat 模型。
 - 命令行前端（rich CLI）
   - `cli.py` 提供交互式 CLI，支持斜杠命令和 Markdown 渲染。
@@ -240,7 +244,7 @@ demo.py                    # 早期 demo / CLI 版本（保留作参考）
   - `nodes/*`：
     - `decision.py`：意图识别（症状 / 流程 / 混合 / 非医疗）。
     - `es_rag.py`：流程文档检索（Elasticsearch）。
-    - `milvus_rag.py`：症状向量检索（Milvus）。
+    - `milvus_rag.py`：症状向量检索（Milvus）+ 双路混合检索（ES rag_es + Milvus medical_knowledge）+ RRF 融合 + LLM Rerank 精排。
     - `check_docs.py`：检索结果评估，决定是否需要重写 Query。
     - `rewrite.py`：问题重写，控制重写次数避免死循环。
     - `answer.py`：综合上下文与文档生成最终答案。
@@ -299,6 +303,9 @@ demo.py                    # 早期 demo / CLI 版本（保留作参考）
 - `ES_INDEX_NAME`：流程文档索引名，默认 `hospital_procedures`。
 - `MILVUS_COLLECTION`：Milvus 集合名，默认 `medical_knowledge`。
 - `MILVUS_TOP_K` / `MILVUS_MIN_SIM` / `MILVUS_MAX_DOCS`：Milvus 检索参数。
+- `RETRIEVAL_K`：双路检索时每路取 top_k，默认 50。
+- `RRF_K`：RRF 融合参数，默认 60。
+- `RERANK_TOP_N`：Rerank 精排后返回数量，默认 10。
 - `MAX_REWRITE`：允许的最大 Query 重写次数。
 - `MAX_HISTORY_MSGS` / `TRIM_TRIGGER_MSGS`：会话历史裁剪控制。
 - `CHAT_MODEL_NAME`：聊天模型名，默认 `qwen3-max`。
@@ -344,6 +351,9 @@ pip install -r requirements.txt
 （如仅跑入库脚本，可按需安装 `elasticsearch`、`langchain-milvus`、`pymilvus`、`langchain-openai`、`python-dotenv`。）
 
 ### 3. RAG 数据入库
+- ES 索引说明：
+  - `hospital_procedures`：医院流程/制度文档（用于 es_rag 流程检索）
+  - `rag_es`：医疗问答数据（用于 milvus_rag 混合检索）
 - ES（流程/制度文档）：
   ```bash
   cd demo
@@ -352,6 +362,13 @@ pip install -r requirements.txt
   python es.py   # 索引为空时自动创建 hospital_procedures 并写入
   ```
   如需调整 ES 地址/索引/数据文件，修改 `demo/es.py` 顶部的 `ES_URL`、`INDEX_NAME`、`DATA_PATH`。
+
+- ES（医疗问答，用于混合检索）：
+  ```bash
+  cd demo
+  # 数据：demo/data/milvus数据Add.txt（JSONL格式）
+  python milvus_es_import.py   # 同时导入 ES rag_es 索引 + Milvus collection
+  ```
 
 - Milvus（症状问诊向量库）：
   ```bash
@@ -440,3 +457,15 @@ python cli.py
 ## 说明
 
 本项目主要用于展示「生产级医院导诊 Agentic 助手」的整体设计与实现思路，涉及的医学内容仅为技术演示示例，不构成任何医疗建议或诊断依据，请勿用于真实诊疗决策。
+## 本项目与企业配置对比
+| 系统模块          | 本项目方案（Qwen-only）      | 企业推荐组合（国产私有化）               | 推理设备 |
+| ------------- | --------------------- | --------------------------- | ---- |
+| 意图识别          | Qwen2-1.5B prompt     | Chinese-BERT / ERNIE intent | CPU  |
+| 槽位抽取          | Qwen2-1.5B prompt NER | ERNIE-Med / ChineseBERT-Med | CPU  |
+| Query Rewrite | Qwen2-1.5B            | Qwen2-1.5B / 规则模板           | CPU  |
+| Embedding     | Qwen embedding        | BGE-large-zh                | CPU  |
+| 向量检索          | FAISS                 | Milvus / FAISS              | CPU  |
+| Rerank        | Qwen2-1.5B rerank     | BGE-reranker                | CPU  |
+| RAG答案生成       | Qwen2-7B              | Qwen2-7B / Baichuan2-7B     | GPU  |
+| 会话记忆          | memory buffer         | Redis / PostgreSQL          | CPU  |
+

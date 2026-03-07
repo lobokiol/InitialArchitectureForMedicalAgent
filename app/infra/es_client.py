@@ -21,7 +21,7 @@ def _search_es_with_fallback(query: str, size: int = 5):
             {
                 "query_string": {
                     "query": query,
-                    "fields": ["scene^2", "raw_text"],
+                    "fields": ["scene^2", "raw_text"],  # 权重设置，scene 字段更重要
                     "default_operator": operator,
                 }
             }
@@ -62,4 +62,44 @@ def search_process_docs(query: str, size: int = 5) -> List[RetrievedDoc]:
             )
         )
     logger.info("search_process_docs: got %d docs", len(docs))
+    return docs
+
+
+def search_rag_es(query: str, size: int = 50) -> List[RetrievedDoc]:
+    """
+    搜索 rag_es 索引（医疗问答数据）
+    使用 BM25 检索，返回 top_k 结果
+    """
+    body = {
+        "query": {
+            "multi_match": {
+                "query": query,
+                "fields": ["ask^2", "answer^1", "tags^1.5", "theme^1", "departments^1"],
+                "type": "best_fields",
+            }
+        },
+        "size": size,
+    }
+
+    try:
+        res = es_client.search(index="rag_es", body=body)
+        hits = res.get("hits", {}).get("hits", [])
+        logger.info("search_rag_es: hits=%d", len(hits))
+    except Exception:
+        logger.exception("ES rag_es 查询失败")
+        return []
+
+    docs: List[RetrievedDoc] = []
+    for h in hits:
+        src = h.get("_source", {})
+        docs.append(
+            RetrievedDoc(
+                id=src.get("id", h.get("_id")),
+                source="medical",
+                title=src.get("theme", ""),
+                content=f"问题: {src.get('ask', '')}\n回答: {src.get('answer', '')}",
+                score=h.get("_score"),
+            )
+        )
+    logger.info("search_rag_es: got %d docs", len(docs))
     return docs
