@@ -1,0 +1,1608 @@
+{
+  "train": [
+    {
+      "text": "患者三天前开始出现恶心症状，建议就诊科室：儿科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "儿科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "两天的恶心，去内科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "内科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我一周头痛了，应该挂神经科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "神经科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "一个月以来一直头痛，需要挂儿科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "儿科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "两天以来一直头痛，需要挂外科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "外科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我胸闷得厉害，一周了，应该去妇科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "妇科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "一周的恶心，去神经科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "神经科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一天关节痛了，应该挂外科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "外科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一个月腹痛了，应该挂外科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "外科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "一天的咳嗽，去眼科看看",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "眼科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一周头痛了，应该挂儿科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "儿科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一天发热了，应该挂儿科",
+      "slots": {
+        "symptom": "发热",
+        "department": "儿科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "两天以来一直关节痛，需要挂神经科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "神经科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "两天以来一直关节痛，需要挂内科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "内科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "患者一周前开始出现腹痛症状，建议就诊科室：外科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "患者三天前开始出现头痛症状，建议就诊科室：眼科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "眼科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "一个月的恶心，去皮肤科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "皮肤科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我一天头痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "耳鼻喉科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "患者两天前开始出现胸闷症状，建议就诊科室：耳鼻喉科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "耳鼻喉科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "三天以来一直咳嗽，需要挂皮肤科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "皮肤科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一个月头晕了，应该挂妇科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "妇科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我三天头晕了，应该挂神经科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "神经科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "三天以来一直恶心，需要挂儿科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "儿科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "患者两周前开始出现胸闷症状，建议就诊科室：眼科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "眼科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一天胸闷了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "耳鼻喉科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我两天胸闷了，应该挂神经科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "神经科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我一周头晕了，应该挂皮肤科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "皮肤科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一周头痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "耳鼻喉科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "一天的发热，去妇科看看",
+      "slots": {
+        "symptom": "发热",
+        "department": "妇科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一天发热了，应该挂外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我头痛得厉害，一周了，应该去皮肤科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "皮肤科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一个月头痛了，应该挂内科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "内科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两周胸闷了，应该挂眼科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "眼科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "一天以来一直恶心，需要挂外科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "外科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我两天关节痛了，应该挂外科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "外科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "两周以来一直胸闷，需要挂外科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "外科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "一天的关节痛，去内科看看",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "内科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一个月胸闷了，应该挂妇科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "妇科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我三天腹痛了，应该挂皮肤科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "皮肤科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天发热了，应该挂内科",
+      "slots": {
+        "symptom": "发热",
+        "department": "内科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我一周发热了，应该挂外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "咳嗽伴三天，内科专科治疗",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "内科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天腹痛了，应该挂眼科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "眼科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我头痛得厉害，两周了，应该去儿科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "儿科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一周恶心了，应该挂外科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "两天以来一直头痛，需要挂儿科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "儿科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "一周以来一直关节痛，需要挂外科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "头痛伴一周，神经科专科治疗",
+      "slots": {
+        "symptom": "头痛",
+        "department": "神经科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一周腹痛了，应该挂内科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "内科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我发热得厉害，一天了，应该去外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一个月腹痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两周恶心了，应该挂神经科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "神经科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "一周的恶心，去皮肤科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "皮肤科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我胸闷得厉害，一个月了，应该去神经科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "神经科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "一周的头痛，去外科看看",
+      "slots": {
+        "symptom": "头痛",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我两天恶心了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "耳鼻喉科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我两天头晕了，应该挂外科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "外科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我两天胸闷了，应该挂妇科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "妇科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "发热伴一周，妇科专科治疗",
+      "slots": {
+        "symptom": "发热",
+        "department": "妇科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "头痛伴三天，外科专科治疗",
+      "slots": {
+        "symptom": "头痛",
+        "department": "外科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天发热了，应该挂妇科",
+      "slots": {
+        "symptom": "发热",
+        "department": "妇科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "患者一周前开始出现头晕症状，建议就诊科室：耳鼻喉科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "耳鼻喉科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我三天关节痛了，应该挂内科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "内科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一周咳嗽了，应该挂内科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "内科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我两天恶心了，应该挂外科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "外科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我一周关节痛了，应该挂皮肤科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "皮肤科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一个月关节痛了，应该挂妇科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "妇科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "三天的恶心，去眼科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "眼科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我发热得厉害，一周了，应该去神经科",
+      "slots": {
+        "symptom": "发热",
+        "department": "神经科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一周咳嗽了，应该挂外科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我两周头晕了，应该挂眼科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "眼科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一天胸闷了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "耳鼻喉科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我两周关节痛了，应该挂妇科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "妇科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一天发热了，应该挂妇科",
+      "slots": {
+        "symptom": "发热",
+        "department": "妇科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我两天头痛了，应该挂内科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "内科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "一周以来一直腹痛，需要挂儿科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "儿科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "患者三天前开始出现胸闷症状，建议就诊科室：皮肤科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "皮肤科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天胸闷了，应该挂内科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "内科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我恶心得厉害，一周了，应该去妇科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "妇科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一天发热了，应该挂皮肤科",
+      "slots": {
+        "symptom": "发热",
+        "department": "皮肤科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我三天胸闷了，应该挂内科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "内科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我三天头晕了，应该挂皮肤科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "皮肤科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "三天以来一直头痛，需要挂妇科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "妇科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "关节痛伴一周，神经科专科治疗",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "神经科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "胸闷伴两周，儿科专科治疗",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "儿科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一个月发热了，应该挂外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两周恶心了，应该挂外科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "外科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一周头晕了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "耳鼻喉科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一天发热了，应该挂神经科",
+      "slots": {
+        "symptom": "发热",
+        "department": "神经科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一周恶心了，应该挂儿科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "儿科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "患者一天前开始出现发热症状，建议就诊科室：神经科",
+      "slots": {
+        "symptom": "发热",
+        "department": "神经科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我三天胸闷了，应该挂儿科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "儿科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我腹痛得厉害，一周了，应该去皮肤科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "皮肤科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "两周的腹痛，去耳鼻喉科看看",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我三天关节痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "耳鼻喉科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一天头晕了，应该挂儿科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "儿科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一天头痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "耳鼻喉科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一个月发热了，应该挂儿科",
+      "slots": {
+        "symptom": "发热",
+        "department": "儿科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我一个月发热了，应该挂外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "两天的发热，去儿科看看",
+      "slots": {
+        "symptom": "发热",
+        "department": "儿科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我两周头晕了，应该挂妇科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "妇科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我三天腹痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一天咳嗽了，应该挂儿科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "儿科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "患者一天前开始出现发热症状，建议就诊科室：儿科",
+      "slots": {
+        "symptom": "发热",
+        "department": "儿科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我三天咳嗽了，应该挂外科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "外科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "患者两周前开始出现关节痛症状，建议就诊科室：儿科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "儿科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我两天咳嗽了，应该挂眼科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "眼科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "三天的头痛，去眼科看看",
+      "slots": {
+        "symptom": "头痛",
+        "department": "眼科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "咳嗽伴两天，眼科专科治疗",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "眼科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "一天以来一直关节痛，需要挂神经科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "神经科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "一天的头晕，去神经科看看",
+      "slots": {
+        "symptom": "头晕",
+        "department": "神经科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一个月腹痛了，应该挂皮肤科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "皮肤科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我咳嗽得厉害，三天了，应该去妇科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "妇科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "三天的胸闷，去内科看看",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "内科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天头痛了，应该挂神经科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "神经科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "患者两天前开始出现关节痛症状，建议就诊科室：眼科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "眼科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "关节痛伴一个月，儿科专科治疗",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "儿科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我胸闷得厉害，一个月了，应该去耳鼻喉科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "耳鼻喉科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我三天头痛了，应该挂眼科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "眼科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天关节痛了，应该挂儿科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "儿科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我三天腹痛了，应该挂皮肤科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "皮肤科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一个月腹痛了，应该挂妇科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "妇科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两天恶心了，应该挂儿科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "儿科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "恶心伴两周，妇科专科治疗",
+      "slots": {
+        "symptom": "恶心",
+        "department": "妇科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我两周胸闷了，应该挂外科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "外科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一周咳嗽了，应该挂妇科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "妇科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我三天恶心了，应该挂眼科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "眼科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我三天胸闷了，应该挂妇科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "妇科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "三天的咳嗽，去妇科看看",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "妇科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我三天腹痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "三天以来一直恶心，需要挂神经科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "神经科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "两天以来一直关节痛，需要挂外科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "外科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "一个月以来一直头痛，需要挂眼科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "眼科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "恶心伴一天，神经科专科治疗",
+      "slots": {
+        "symptom": "恶心",
+        "department": "神经科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我一天头痛了，应该挂皮肤科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "皮肤科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我两周头痛了，应该挂外科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "外科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我头晕得厉害，两周了，应该去妇科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "妇科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我咳嗽得厉害，两天了，应该去眼科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "眼科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我两周发热了，应该挂内科",
+      "slots": {
+        "symptom": "发热",
+        "department": "内科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "一周的恶心，去儿科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "儿科",
+        "duration": "一周"
+      }
+    }
+  ],
+  "validation": [
+    {
+      "text": "一周以来一直关节痛，需要挂外科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我两周恶心了，应该挂神经科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "神经科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "三天以来一直头痛，需要挂外科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "外科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "患者一个月前开始出现腹痛症状，建议就诊科室：内科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "内科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两周腹痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "腹痛伴三天，耳鼻喉科专科治疗",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天胸闷了，应该挂妇科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "妇科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "三天以来一直头痛，需要挂神经科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "神经科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一周腹痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我一天胸闷了，应该挂儿科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "儿科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "头痛伴两天，皮肤科专科治疗",
+      "slots": {
+        "symptom": "头痛",
+        "department": "皮肤科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "患者一个月前开始出现咳嗽症状，建议就诊科室：外科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "外科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两天发热了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "发热",
+        "department": "耳鼻喉科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我一个月咳嗽了，应该挂外科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "外科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两天头痛了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "耳鼻喉科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "一个月以来一直发热，需要挂外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两天恶心了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "耳鼻喉科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "患者两周前开始出现腹痛症状，建议就诊科室：眼科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "眼科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "一周以来一直胸闷，需要挂妇科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "妇科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "患者一个月前开始出现头晕症状，建议就诊科室：神经科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "神经科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "两天的腹痛，去外科看看",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "外科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我两天胸闷了，应该挂儿科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "儿科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "胸闷伴一天，皮肤科专科治疗",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "皮肤科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "三天以来一直胸闷，需要挂儿科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "儿科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一周腹痛了，应该挂外科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我胸闷得厉害，一周了，应该去妇科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "妇科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "一周的腹痛，去神经科看看",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "神经科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "一个月的恶心，去皮肤科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "皮肤科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我一周腹痛了，应该挂眼科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "眼科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "一周的恶心，去妇科看看",
+      "slots": {
+        "symptom": "恶心",
+        "department": "妇科",
+        "duration": "一周"
+      }
+    }
+  ],
+  "test": [
+    {
+      "text": "头晕伴一个月，妇科专科治疗",
+      "slots": {
+        "symptom": "头晕",
+        "department": "妇科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "一周以来一直发热，需要挂内科",
+      "slots": {
+        "symptom": "发热",
+        "department": "内科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我两周关节痛了，应该挂眼科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "眼科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "患者三天前开始出现胸闷症状，建议就诊科室：耳鼻喉科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "耳鼻喉科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我两天恶心了，应该挂神经科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "神经科",
+        "duration": "两天"
+      }
+    },
+    {
+      "text": "我两周腹痛了，应该挂眼科",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "眼科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "一周的关节痛，去皮肤科看看",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "皮肤科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我三天咳嗽了，应该挂眼科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "眼科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我头痛得厉害，两周了，应该去神经科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "神经科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一天头痛了，应该挂皮肤科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "皮肤科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "患者一周前开始出现头痛症状，建议就诊科室：外科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "外科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "腹痛伴三天，耳鼻喉科专科治疗",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "耳鼻喉科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一个月头痛了，应该挂内科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "内科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "患者一天前开始出现头痛症状，建议就诊科室：皮肤科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "皮肤科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "一个月以来一直发热，需要挂儿科",
+      "slots": {
+        "symptom": "发热",
+        "department": "儿科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我两周咳嗽了，应该挂皮肤科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "皮肤科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我一周头痛了，应该挂皮肤科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "皮肤科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我三天发热了，应该挂外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "我一个月恶心了，应该挂妇科",
+      "slots": {
+        "symptom": "恶心",
+        "department": "妇科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "一天以来一直头痛，需要挂眼科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "眼科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "腹痛伴一天，眼科专科治疗",
+      "slots": {
+        "symptom": "腹痛",
+        "department": "眼科",
+        "duration": "一天"
+      }
+    },
+    {
+      "text": "我头晕得厉害，两周了，应该去儿科",
+      "slots": {
+        "symptom": "头晕",
+        "department": "儿科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我发热得厉害，两周了，应该去内科",
+      "slots": {
+        "symptom": "发热",
+        "department": "内科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "两周以来一直胸闷，需要挂眼科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "眼科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我头痛得厉害，一个月了，应该去皮肤科",
+      "slots": {
+        "symptom": "头痛",
+        "department": "皮肤科",
+        "duration": "一个月"
+      }
+    },
+    {
+      "text": "我三天咳嗽了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "咳嗽",
+        "department": "耳鼻喉科",
+        "duration": "三天"
+      }
+    },
+    {
+      "text": "一周以来一直关节痛，需要挂神经科",
+      "slots": {
+        "symptom": "关节痛",
+        "department": "神经科",
+        "duration": "一周"
+      }
+    },
+    {
+      "text": "我两周胸闷了，应该挂耳鼻喉科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "耳鼻喉科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我发热得厉害，两周了，应该去外科",
+      "slots": {
+        "symptom": "发热",
+        "department": "外科",
+        "duration": "两周"
+      }
+    },
+    {
+      "text": "我三天胸闷了，应该挂内科",
+      "slots": {
+        "symptom": "胸闷",
+        "department": "内科",
+        "duration": "三天"
+      }
+    }
+  ]
+}

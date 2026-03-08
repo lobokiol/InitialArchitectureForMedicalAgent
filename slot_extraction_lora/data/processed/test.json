@@ -1,0 +1,291 @@
+[
+  {
+    "text": "主要症状是呕吐，持续一天，伴有呕吐",
+    "slots": {
+      "symptom": "呕吐",
+      "duration": "一天",
+      "trigger": "熬夜",
+      "accompanying_symptoms": [
+        "呕吐"
+      ]
+    }
+  },
+  {
+    "text": "我头晕三天了，有点乏力",
+    "slots": {
+      "symptom": "头晕",
+      "duration": "三天",
+      "severity": "中度",
+      "location": "胸部",
+      "accompanying_symptoms": [
+        "乏力",
+        "头晕"
+      ]
+    }
+  },
+  {
+    "text": "主要症状是心悸，持续一个月，伴有头晕",
+    "slots": {
+      "symptom": "心悸",
+      "duration": "一个月",
+      "severity": "中度",
+      "location": "全身",
+      "accompanying_symptoms": [
+        "头晕"
+      ]
+    }
+  },
+  {
+    "text": "一周前开始胸闷，重度程度",
+    "slots": {
+      "symptom": "胸闷",
+      "duration": "一周",
+      "location": "背部"
+    }
+  },
+  {
+    "text": "主要症状是咳嗽，持续一个月，伴有恶心",
+    "slots": {
+      "symptom": "咳嗽",
+      "severity": "轻度",
+      "trigger": "劳累",
+      "department": "呼吸内科"
+    }
+  },
+  {
+    "text": "主要症状是腹痛，持续两天，伴有乏力, 头晕",
+    "slots": {
+      "symptom": "腹痛",
+      "duration": "两天",
+      "trigger": "饮食不当"
+    }
+  },
+  {
+    "text": "我呕吐一个月了，有点头晕",
+    "slots": {
+      "symptom": "呕吐",
+      "duration": "一个月",
+      "location": "胸部",
+      "trigger": "饮食不当"
+    }
+  },
+  {
+    "text": "两周前开始咽痛，重度程度",
+    "slots": {
+      "symptom": "咽痛",
+      "location": "腹部",
+      "trigger": "压力大"
+    }
+  },
+  {
+    "text": "胸部胸闷，可能是受凉引起的",
+    "slots": {
+      "symptom": "胸闷",
+      "accompanying_symptoms": [
+        "头晕"
+      ]
+    }
+  },
+  {
+    "text": "主要症状是心悸，持续两天，伴有呕吐",
+    "slots": {
+      "symptom": "心悸",
+      "duration": "两天",
+      "severity": "轻度"
+    }
+  },
+  {
+    "text": "主要症状是呕吐，持续一天，伴有头晕",
+    "slots": {
+      "symptom": "呕吐",
+      "severity": "中度",
+      "location": "胸部",
+      "trigger": "熬夜",
+      "department": "内科"
+    }
+  },
+  {
+    "text": "主要症状是恶心，持续三天，伴有恶心",
+    "slots": {
+      "symptom": "恶心",
+      "duration": "三天",
+      "severity": "中度",
+      "location": "背部",
+      "department": "外科"
+    }
+  },
+  {
+    "text": "主要症状是呕吐，持续一周，伴有恶心, 呕吐",
+    "slots": {
+      "symptom": "呕吐",
+      "duration": "一周",
+      "severity": "轻度"
+    }
+  },
+  {
+    "text": "全身恶心，可能是熬夜引起的",
+    "slots": {
+      "symptom": "恶心",
+      "severity": "轻度",
+      "location": "全身",
+      "accompanying_symptoms": [
+        "乏力",
+        "头晕"
+      ]
+    }
+  },
+  {
+    "text": "全身咳嗽，可能是感冒引起的",
+    "slots": {
+      "symptom": "咳嗽",
+      "duration": "两周",
+      "location": "全身",
+      "trigger": "感冒",
+      "accompanying_symptoms": [
+        "呕吐"
+      ],
+      "department": "急诊科"
+    }
+  },
+  {
+    "text": "主要症状是乏力，持续三天，伴有乏力",
+    "slots": {
+      "symptom": "乏力",
+      "location": "全身",
+      "accompanying_symptoms": [
+        "乏力"
+      ]
+    }
+  },
+  {
+    "text": "我呕吐一天了，有点恶心",
+    "slots": {
+      "symptom": "呕吐",
+      "duration": "一天",
+      "department": "外科"
+    }
+  },
+  {
+    "text": "主要症状是乏力，持续两天，伴有恶心, 呕吐",
+    "slots": {
+      "symptom": "乏力",
+      "severity": "轻度",
+      "location": "喉咙"
+    }
+  },
+  {
+    "text": "我腹泻三天了，有点头晕",
+    "slots": {
+      "symptom": "腹泻",
+      "duration": "三天",
+      "severity": "轻度",
+      "trigger": "受凉"
+    }
+  },
+  {
+    "text": "两天前开始乏力，重度程度",
+    "slots": {
+      "symptom": "乏力",
+      "duration": "两天",
+      "location": "胸部",
+      "trigger": "熬夜",
+      "accompanying_symptoms": [
+        "乏力"
+      ]
+    }
+  },
+  {
+    "text": "我乏力一天了，有点恶心",
+    "slots": {
+      "symptom": "乏力",
+      "severity": "中度",
+      "accompanying_symptoms": [
+        "恶心",
+        "呕吐"
+      ],
+      "department": "内科"
+    }
+  },
+  {
+    "text": "胸部恶心，可能是劳累引起的",
+    "slots": {
+      "symptom": "恶心",
+      "duration": "两周"
+    }
+  },
+  {
+    "text": "两天前开始心悸，中度程度",
+    "slots": {
+      "symptom": "心悸",
+      "duration": "两天",
+      "location": "头部",
+      "trigger": "压力大",
+      "accompanying_symptoms": [
+        "食欲不振"
+      ]
+    }
+  },
+  {
+    "text": "两天前开始腹痛，中度程度",
+    "slots": {
+      "symptom": "腹痛",
+      "duration": "两天",
+      "location": "喉咙",
+      "accompanying_symptoms": [
+        "恶心"
+      ],
+      "department": "外科"
+    }
+  },
+  {
+    "text": "主要症状是胸闷，持续一个月，伴有乏力, 头晕",
+    "slots": {
+      "symptom": "胸闷",
+      "location": "腹部"
+    }
+  },
+  {
+    "text": "主要症状是恶心，持续一周，伴有呕吐",
+    "slots": {
+      "symptom": "恶心",
+      "duration": "一周",
+      "severity": "轻度"
+    }
+  },
+  {
+    "text": "我呕吐一个月了，有点头晕",
+    "slots": {
+      "symptom": "呕吐",
+      "location": "腹部",
+      "department": "神经内科"
+    }
+  },
+  {
+    "text": "一个月前开始头晕，重度程度",
+    "slots": {
+      "symptom": "头晕",
+      "duration": "一个月",
+      "severity": "重度",
+      "location": "腹部",
+      "trigger": "受凉"
+    }
+  },
+  {
+    "text": "全身胸闷，可能是劳累引起的",
+    "slots": {
+      "symptom": "胸闷",
+      "duration": "一天",
+      "severity": "轻度",
+      "accompanying_symptoms": [
+        "恶心"
+      ]
+    }
+  },
+  {
+    "text": "一周前开始胸闷，重度程度",
+    "slots": {
+      "symptom": "胸闷",
+      "trigger": "压力大"
+    }
+  }
+]
