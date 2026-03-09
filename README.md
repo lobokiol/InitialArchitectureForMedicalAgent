@@ -65,6 +65,13 @@ web页面：
 │            │            - location: "腹部"                                   │
 │            ▼                                                                  │
 │   ┌─────────────────┐                                                       │
+│   │ knowledge_graph│ ← Agent 2.5: 知识图谱                                  │
+│   │   (新增)       │   - 查询"腹痛"的伴随症状: ["恶心","腹胀","腹泻"]       │
+│   │   (症状关联)   │   - 推荐科室: ["消化内科"]                            │
+│   └────────┬────────┘                                                       │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────┐                                                       │
 │   │  risk_check    │ ← Agent 3: 风险评估                                    │
 │   │  危险信号检测   │   - 检测: 胸痛/呼吸困难/呕血等                        │
 │   └────────┬────────┘                                                       │
@@ -85,10 +92,10 @@ web页面：
 │              │                │                                               │
 │              ▼                ▼                                               │
 │       ┌──────────┐    ┌─────────────────┐                                   │
-│       │  输出    │    │  question_gen  │ ← Agent 4: 追问生成                │
-│       │  JSON    │    │  生成下一问题   │   - "这个症状持续多长时间了？"    │
-│       │  问诊表  │    └─────────────────┘   - "疼痛程度如何？0-10分？"      │
-│       └──────────┘                                                         │
+│       │  输出    │    │  question_gen  │ ← Agent 4: 追问生成 (改进)         │
+│       │  JSON    │    │  生成下一问题   │   - 结合知识图谱: "有恶心或腹胀吗？"│
+│       │  问诊表  │    │  (结合伴随症状) │   - 传统: "这个症状持续多久了？"  │
+│       └──────────┘    └─────────────────┘                                   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -97,12 +104,11 @@ web页面：
 
 | 轮次 | 用户输入 | 系统回复 | 填入槽位 |
 |------|---------|---------|---------|
-| 1 | 我肚子疼 → normalize → 我腹痛 | 这个症状持续多长时间了？ | chief_complaint: "我腹痛", symptoms: ["腹痛"], location: "腹部" |
+| 1 | 我肚子疼 → normalize → 我腹痛 | 有没有恶心或腹胀等症状？ | chief_complaint: "我腹痛", symptoms: ["腹痛"], location: "腹部", accompanying_symptoms: ["恶心"] |
 | 2 | 疼了3天了 | 疼痛程度如何？0-10分？ | duration |
 | 3 | 大概7分疼 | 有没有什么情况下会加重或缓解？ | severity |
-| 4 | 吃完饭更疼 | 有没有伴随其他症状？ | triggers |
-| 5 | 还发烧，恶心 | 以前有过类似症状吗？ | accompanying_symptoms |
-| 6 | 没有 | 问诊完成 | medical_history |
+| 4 | 吃完饭更疼 | 以前有过类似症状吗？ | triggers |
+| 5 | 还发烧，恶心 | 问诊完成，推荐消化内科 | accompaning_symptoms: ["发烧", "恶心"], medical_history |
 
 **输出 JSON 问诊表**：
 ```json
@@ -191,7 +197,7 @@ app/
     diagnosis/             # 多轮问诊系统
       slots.py             # 槽位定义
       risk.py              # 危险信号检测
-      questions.py         # 追问模板
+      questions.py         # 追问模板 (新增 associated_symptoms 支持)
       filler.py            # 槽位填充逻辑
   graph/
     builder.py             # LangGraph 状态机构建与编译
@@ -204,25 +210,23 @@ app/
       rewrite.py           # Query 重写
       answer.py            # 答案生成
       trim_history.py      # 历史裁剪
-      diagnosis.py         # 主编排器
+      diagnosis.py         # 主编排器 (新增 knowledge_graph 集成)
       slot_fill.py         # Agent 2: 槽位填充
+      knowledge_graph.py   # ★新增★ Agent 2.5: 知识图谱工具
       risk_check.py        # Agent 3: 风险评估
-      question_gen.py      # Agent 4: 追问生成
+      question_gen.py      # Agent 4: 追问生成 (利用伴随症状)
       completion.py        # Agent 5: 结束判断
   infra/
     redis_client.py        # Redis 连接 & LangGraph RedisSaver
     es_client.py           # Elasticsearch 客户端封装
     milvus_client.py       # Milvus 客户端封装
+  tools/
+    patient_tools.py       # 病例查询工具
+    knowledge_graph_tool.py # ★新增★ 知识图谱工具 (symptom_associations等)
   sessions/
     manager.py             # 会话管理：user_id / thread_id 元数据
   services/
     chat_service.py        # ChatService：衔接 API 与 LangGraph
-
-cli.py                     # rich + requests 命令行前端
-demo.py                    # 早期 demo / CLI 版本（保留作参考）
-后端设计提示词.md          # 后端设计提示与思考过程
-前端设计提示词.md          # 前端设计提示与交互构想
-项目总结.md                # 后端整体架构与实现总结
 ```
 
 ---

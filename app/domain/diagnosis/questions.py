@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 
 QUESTION_TEMPLATES = {
@@ -21,13 +21,25 @@ QUESTION_ORDER = [
 ]
 
 
-def get_next_question(missing_slots: list[str]) -> str:
-    """根据缺失槽位生成下一个问题"""
+def get_next_question(
+    missing_slots: list[str],
+    associated_symptoms: Optional[List[str]] = None,
+) -> str:
+    """
+    根据缺失槽位和知识图谱返回的伴随症状生成个性化追问
+
+    Args:
+        missing_slots: 缺失的槽位列表
+        associated_symptoms: 知识图谱返回的常见伴随症状
+    """
     if not missing_slots:
         return "感谢您的配合，问诊信息已收集完整。"
 
     for slot in QUESTION_ORDER:
         if slot in missing_slots:
+            if slot == "accompanying_symptoms" and associated_symptoms:
+                symptoms_str = "、".join(associated_symptoms[:3])
+                return f"有没有伴随{symptoms_str}等症状？"
             return QUESTION_TEMPLATES.get(slot, "还有其他不舒服的吗？")
 
     return QUESTION_TEMPLATES.get(missing_slots[0], "还有其他不舒服的吗？")

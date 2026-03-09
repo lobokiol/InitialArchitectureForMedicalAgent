@@ -32,9 +32,10 @@ def fill_slots_with_input(
 def diagnosis_node(state: AppState) -> dict:
     """
     主编排器：协调各Agent节点完成问诊
-    流程: normalize -> slot_fill -> risk_check -> (emergency/completion/question_gen)
+    流程: normalize -> slot_fill -> knowledge_graph -> risk_check -> (emergency/completion/question_gen)
     """
     from app.graph.nodes.slot_fill import slot_fill_node
+    from app.tools.knowledge_graph_tool import query_symptom_associations_with_context
 
     user_input = state.messages[-1].content
     if isinstance(user_input, list):
@@ -55,6 +56,15 @@ def diagnosis_node(state: AppState) -> dict:
 
     filled_slots = fill_slots_with_input(normalized_input, existing_slots)
     state.diagnosis_slots = filled_slots
+
+    associated_symptoms = []
+    recommended_departments = []
+    if filled_slots.symptoms:
+        kg_result = query_symptom_associations_with_context(filled_slots.symptoms)
+        associated_symptoms = kg_result.get("associated_symptoms", [])
+        recommended_departments = kg_result.get("recommended_departments", [])
+    state.diagnosis_associated_symptoms = associated_symptoms
+    state.diagnosis_recommended_departments = recommended_departments
 
     risk_result = risk_check_node(state)
     state.diagnosis_risk_level = risk_result.get("diagnosis_risk_level", "none")
@@ -87,7 +97,11 @@ def diagnosis_node(state: AppState) -> dict:
             "diagnosis_slots": state.diagnosis_slots,
         }
 
-    question_result = question_gen_node(state)
+    question_result = question_gen_node(
+        state,
+        associated_symptoms=associated_symptoms,
+        recommended_departments=recommended_departments,
+    )
     state.diagnosis_next_question = question_result.get("diagnosis_next_question", "")
     state.diagnosis_question_count = question_result.get("diagnosis_question_count", 1)
     state.diagnosis_missing_slots = question_result.get("diagnosis_missing_slots", [])
