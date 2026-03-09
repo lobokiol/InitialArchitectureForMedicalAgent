@@ -5,16 +5,36 @@ from app.domain.diagnosis.questions import get_emergency_warning, get_completion
 from app.graph.nodes.risk_check import risk_check_node
 from app.graph.nodes.completion import completion_node
 from app.graph.nodes.question_gen import question_gen_node
+from app.graph.nodes.normalize import normalize_text
 from langchain_core.messages import AIMessage
+
+
+def fill_slots_with_input(
+    user_input: str, current_slots: DiagnosisSlots
+) -> DiagnosisSlots:
+    """使用标准化后的输入填充槽位"""
+    from app.domain.diagnosis.filler import fill_from_text
+
+    if not user_input or not user_input.strip():
+        return current_slots
+
+    user_input = user_input.strip()
+
+    if not current_slots.chief_complaint:
+        current_slots.chief_complaint = user_input
+
+    filled = current_slots.to_dict()
+    fill_from_text(user_input, filled)
+
+    return DiagnosisSlots(**filled)
 
 
 def diagnosis_node(state: AppState) -> dict:
     """
     主编排器：协调各Agent节点完成问诊
-    流程: slot_fill -> normalize -> risk_check -> (emergency/completion/question_gen)
+    流程: normalize -> slot_fill -> risk_check -> (emergency/completion/question_gen)
     """
     from app.graph.nodes.slot_fill import slot_fill_node
-    from app.graph.nodes.normalize import normalize_node
 
     user_input = state.messages[-1].content
     if isinstance(user_input, list):
@@ -25,13 +45,16 @@ def diagnosis_node(state: AppState) -> dict:
     if not user_input:
         return {"messages": [AIMessage(content="请描述您的症状")]}
 
-    slot_result = slot_fill_node(state)
-    state.diagnosis_slots = slot_result.get("diagnosis_slots")
+    normalized_input = normalize_text(user_input)
 
-    normalize_result = normalize_node(state)
-    state.diagnosis_slots = normalize_result.get(
-        "diagnosis_slots", state.diagnosis_slots
+    existing_slots = (
+        state.diagnosis_slots if hasattr(state, "diagnosis_slots") else None
     )
+    if existing_slots is None:
+        existing_slots = DiagnosisSlots()
+
+    filled_slots = fill_slots_with_input(normalized_input, existing_slots)
+    state.diagnosis_slots = filled_slots
 
     risk_result = risk_check_node(state)
     state.diagnosis_risk_level = risk_result.get("diagnosis_risk_level", "none")

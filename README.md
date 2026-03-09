@@ -52,19 +52,20 @@ web页面：
 │          │                                                                  │
 │          ▼                                                                  │
 │   ┌─────────────────┐                                                       │
+│   │  normalize     │ ← Agent 1: 语义对齐 (先标准化)                         │
+│   │  口语→医学术语  │   - "肚子疼" → "腹痛"                                │
+│   │  "我肚子疼"    │   - "我肚子疼" → "我腹痛"                            │
+│   └────────┬────────┘                                                       │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────┐                                                       │
 │   │  slot_fill     │ ← Agent 2: 槽位填充                                    │
-│   │  提取主诉/症状  │   - chief_complaint: "我肚子疼"                      │
+│   │  提取主诉/症状  │   - chief_complaint: "我腹痛"                        │
 │   └────────┬────────┘   - symptoms: ["腹痛"]                                 │
 │            │            - location: "腹部"                                   │
 │            ▼                                                                  │
 │   ┌─────────────────┐                                                       │
-│   │  normalize     │ ← Agent 3: 语义对齐                                    │
-│   │  口语→医学术语  │   - "肚子疼" → "腹痛"                                │
-│   └────────┬────────┘   - "胸口疼" → "胸痛"                                 │
-│            │                                                                  │
-│            ▼                                                                  │
-│   ┌─────────────────┐                                                       │
-│   │  risk_check    │ ← Agent 4: 风险评估                                    │
+│   │  risk_check    │ ← Agent 3: 风险评估                                    │
 │   │  危险信号检测   │   - 检测: 胸痛/呼吸困难/呕血等                        │
 │   └────────┬────────┘                                                       │
 │            │                                                                  │
@@ -73,8 +74,8 @@ web页面：
 │  危险信号      无风险                                                        │
 │     │             │                                                         │
 │     ▼             ▼                                                         │
-│  急诊告警    ┌─────────────────┐                                             │
-│              │  completion    │ ← Agent 6: 结束判断                          │
+│  急诊告警    ┌─────────────────┐                                           │
+│              │  completion    │ ← Agent 5: 结束判断                          │
 │              │  判断是否完成   │   - 槽位已满?                               │
 │              └────────┬────────┘   - 用户结束?                                │
 │                       │         - 轮询上限?                                   │
@@ -84,7 +85,7 @@ web页面：
 │              │                │                                               │
 │              ▼                ▼                                               │
 │       ┌──────────┐    ┌─────────────────┐                                   │
-│       │  输出    │    │  question_gen  │ ← Agent 5: 追问生成                │
+│       │  输出    │    │  question_gen  │ ← Agent 4: 追问生成                │
 │       │  JSON    │    │  生成下一问题   │   - "这个症状持续多长时间了？"    │
 │       │  问诊表  │    └─────────────────┘   - "疼痛程度如何？0-10分？"      │
 │       └──────────┘                                                         │
@@ -96,7 +97,7 @@ web页面：
 
 | 轮次 | 用户输入 | 系统回复 | 填入槽位 |
 |------|---------|---------|---------|
-| 1 | 我肚子疼 | 这个症状持续多长时间了？ | chief_complaint, symptoms, location |
+| 1 | 我肚子疼 → normalize → 我腹痛 | 这个症状持续多长时间了？ | chief_complaint: "我腹痛", symptoms: ["腹痛"], location: "腹部" |
 | 2 | 疼了3天了 | 疼痛程度如何？0-10分？ | duration |
 | 3 | 大概7分疼 | 有没有什么情况下会加重或缓解？ | severity |
 | 4 | 吃完饭更疼 | 有没有伴随其他症状？ | triggers |
@@ -187,7 +188,7 @@ app/
   domain/
     models.py              # AppState、IntentResult、RetrievedDoc 等领域模型
     routing.py             # LangGraph 节点路由决策
-    diagnosis/             # 多轮问诊系统 ★新增★
+    diagnosis/             # 多轮问诊系统
       slots.py             # 槽位定义
       risk.py              # 危险信号检测
       questions.py         # 追问模板
@@ -196,18 +197,18 @@ app/
     builder.py             # LangGraph 状态机构建与编译
     nodes/                 # 各种节点
       decision.py          # 意图识别
+      normalize.py         # ★优化★ Agent 1: 语义对齐 (先于slot_fill执行)
       es_rag.py           # 流程文档检索（ES）
       milvus_rag.py        # 症状向量检索（Milvus）
       check_docs.py        # 检索结果评估
       rewrite.py           # Query 重写
       answer.py            # 答案生成
       trim_history.py      # 历史裁剪
-      diagnosis.py         # ★新增★ 主编排器
-      slot_fill.py         # ★新增★ Agent 2: 槽位填充
-      normalize.py         # ★新增★ Agent 3: 语义对齐
-      risk_check.py        # ★新增★ Agent 4: 风险评估
-      question_gen.py      # ★新增★ Agent 5: 追问生成
-      completion.py        # ★新增★ Agent 6: 结束判断
+      diagnosis.py         # 主编排器
+      slot_fill.py         # Agent 2: 槽位填充
+      risk_check.py        # Agent 3: 风险评估
+      question_gen.py      # Agent 4: 追问生成
+      completion.py        # Agent 5: 结束判断
   infra/
     redis_client.py        # Redis 连接 & LangGraph RedisSaver
     es_client.py           # Elasticsearch 客户端封装

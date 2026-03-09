@@ -1,4 +1,5 @@
 from typing import Optional
+
 from app.domain.models import AppState
 
 
@@ -33,6 +34,15 @@ SYMPTOM_NORMALIZE_MAP = {
     "手麻": "手足麻木",
     "脚麻": "手足麻木",
 }
+
+
+def normalize_text(text: str) -> str:
+    """对用户输入的整句进行症状标准化"""
+    result = text
+    for colloquial, standard in SYMPTOM_NORMALIZE_MAP.items():
+        if colloquial in result:
+            result = result.replace(colloquial, standard)
+    return result
 
 
 def normalize_symptom(symptom: str) -> str:
