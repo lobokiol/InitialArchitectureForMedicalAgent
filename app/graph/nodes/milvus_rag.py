@@ -48,58 +48,38 @@ def rerank_with_qwen(
     query: str, candidates: List[RetrievedDoc], top_n: int = 10
 ) -> List[RetrievedDoc]:
     """
-    使用 Qwen LLM 对候选文档进行精排
+    使用 Qwen3-Rerank API 对候选文档进行精排
     """
     if not candidates:
         return []
 
-    try:
-        from langchain_openai import ChatOpenAI
-    except ImportError:
-        from langchain_openai import ChatOpenAI
+    import requests
 
-    docs_text = []
-    for i, doc in enumerate(candidates):
-        content = doc.content[:600]
-        docs_text.append(f"文档{i + 1}: {content}")
-
-    docs_str = "\n\n".join(docs_text)
-
-    prompt = f"""请根据与用户问题"{query}"的相关性，对以下文档进行排序。
-只返回相关性最高的 {top_n} 个文档编号，用逗号分隔（如：1,3,2）。
-按相关性从高到低排序。只返回编号，不要返回其他内容。
-
-问题：{query}
-
-{docs_str}
-
-请只返回编号："""
+    docs_text = [doc.content[:4000] for doc in candidates]
 
     try:
-        rerank_llm = ChatOpenAI(
-            model="qwen-turbo",
-            temperature=0.3,
+        response = requests.post(
+            "https://dashscope.aliyuncs.com/compatible-api/v1/reranks",
+            headers={
+                "Authorization": f"Bearer {config.DASHSCOPE_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "qwen3-rerank", # BGE—reranker v2                
+                "query": query,
+                "documents": docs_text,
+                "top_n": min(top_n, len(candidates)),
+            },
             timeout=60,
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            api_key=config.DASHSCOPE_API_KEY,
         )
-        response = rerank_llm.invoke(prompt)
-        content = response.content if hasattr(response, "content") else str(response)
-
-        import re
-
-        numbers = re.findall(r"\d+", content)
-        selected_indices = [int(n) - 1 for n in numbers if int(n) <= len(candidates)]
+        response.raise_for_status()
+        result = response.json()
 
         reranked = []
-        for idx in selected_indices[:top_n]:
-            if 0 <= idx < len(candidates):
+        if "results" in result:
+            for item in result["results"]:
+                idx = item["document"]["index"]
                 reranked.append(candidates[idx])
-
-        selected_set = set(selected_indices)
-        for i, doc in enumerate(candidates):
-            if i not in selected_set and len(reranked) < top_n:
-                reranked.append(doc)
 
         logger.info(f"Rerank 成功，返回 {len(reranked)} 条")
         return reranked
