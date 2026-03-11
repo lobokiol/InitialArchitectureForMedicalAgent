@@ -411,6 +411,14 @@ export BACKEND_TIMEOUT=120
 python cli.py
 ```
 
+### 6. 运行 Web 前端（interview-demo）
+```bash
+cd interview-demo
+npm install
+npm run dev
+```
+访问显示的本地地址（通常是 `http://localhost:5173`）即可使用 Web 界面。
+
 ---
 
 ## API 简要说明
