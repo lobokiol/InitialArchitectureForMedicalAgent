@@ -17,8 +17,18 @@ web页面：
 - 医疗导诊对话
   - 支持面向「症状问诊」和「就医流程」的多轮对话。
   - **多轮问诊系统**：通过槽位填充逐步收集患者症状信息，输出结构化问诊表。
+  - **四层症状提取架构**：
+    - Layer 1: 症状词典 (317个keywords快速匹配)
+    - Layer 2: LLM抽取 (Qwen Turbo语义提取)
+    - Layer 3: 合并到Slot (整合多源结果)
+    - Layer 4: 知识图谱校验 (验证+扩展+消歧)
   - **危险信号检测**：实时检测胸痛、呼吸困难等危急症状，立即告警建议挂急诊。
   - 结合向量检索与流程文档检索，给出答案和建议。
+- 知识图谱增强
+  - **Neo4j图数据库**：存储症状-科室映射、伴随症状、疾病关系
+  - **向量搜索**：症状语义匹配 (text-embedding-v2)
+  - **两阶段检索**：向量搜索 + 图推理 (多跳查询)
+  - **判别性症状**：动态生成追问问题，帮助区分不同科室
 - Agentic 对话编排（LangGraph）
   - 使用 `AppState` 管理对话状态，基于 LangGraph 构建状态机。
   - **多Agent协作**：6个专业化Agent节点（意图识别、槽位填充、语义对齐、风险评估、追问生成、结束判断）。
@@ -43,6 +53,68 @@ web页面：
 
 ### 多轮问诊流程（diagnosis 节点内部）
 
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        diagnosis 节点内部流程                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   用户输入: "我胃里翻江倒海，还有点发烧"                                      │
+│          │                                                                  │
+│          ▼                                                                  │
+│   ┌─────────────────────┐                                                   │
+│   │  Layer 1: 词典匹配  │                                                   │
+│   │  基于317个keywords  │  "翻江倒海" → 无匹配                              │
+│   │  快速匹配通俗词汇   │  "发烧" → "发热"                                  │
+│   └────────┬────────────┘                                                   │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────────┐                                                   │
+│   │  Layer 2: LLM抽取   │                                                   │
+│   │  Qwen Turbo语义理解  │  "翻江翻海" → 胃痛 → "腹痛"                     │
+│   │  症状标准化         │  输出: {symptoms: ["腹痛","发热"], ...}          │
+│   └────────┬────────────┘                                                   │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────────┐                                                   │
+│   │  Layer 3: 合并Slot  │                                                   │
+│   │  词典+LLM合并去重   │  合并: ["腹痛", "发热"]                          │
+│   └────────┬────────────┘                                                   │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────────┐                                                   │
+│   │  Layer 4: KG校验    │ ← 新增                                             │
+│   │  验证+扩展+消歧     │  验证: ["腹痛","发热"] ✓                          │
+│   │  Neo4j图推理       │  扩展: ["恶心","腹胀","腹泻","呕吐",...]          │
+│   └────────┬────────────┘                                                   │
+│            │                                                                  │
+│            ▼                                                                  │
+│   ┌─────────────────────┐                                                   │
+│   │  risk_check         │                                                   │
+│   │  危险信号检测       │   - 检测: 胸痛/呼吸困难/呕血等                      │
+│   └────────┬────────────┘                                                   │
+│            │                                                                  │
+│     ┌──────┴──────┐                                                         │
+│     ▼             ▼                                                         │
+│  危险信号      无风险                                                        │
+│     │             │                                                         │
+│     ▼             ▼                                                         │
+│  急诊告警    ┌─────────────────┐                                           │
+│              │  completion     │                                            │
+│              │  判断是否完成   │                                            │
+│              └────────┬────────┘                                            │
+│                       │                                                      │
+│              ┌────────┴────────┐                                             │
+│              ▼                ▼                                             │
+│         完成            进行中                                                │
+│              │                │                                             │
+│              ▼                ▼                                             │
+│       ┌──────────┐    ┌─────────────────┐                                 │
+│       │  输出   │    │  question_gen   │                                 │
+│       │  JSON   │    │  生成下一问题   │                                 │
+│       │  问诊表 │    │  结合KG扩展症状 │                                 │
+│       └──────────┘    └─────────────────┘                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        diagnosis 节点内部流程                                  │
@@ -179,7 +251,7 @@ style HIL fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
 
 ## 项目结构
 
-```text
+```
 app/
   main.py                  # FastAPI 应用入口（create_app / healthz）
   api/
@@ -194,35 +266,39 @@ app/
   domain/
     models.py              # AppState、IntentResult、RetrievedDoc 等领域模型
     routing.py             # LangGraph 节点路由决策
-    diagnosis/             # 多轮问诊系统
-      slots.py             # 槽位定义
+    diagnosis/             # 多轮问诊系统（四层架构）
+      slots.py             # 槽位定义（新增uncertain/expanded字段）
       risk.py              # 危险信号检测
-      questions.py         # 追问模板 (新增 associated_symptoms 支持)
-      filler.py            # 槽位填充逻辑
+      questions.py         # 追问模板
+      filler.py            # 槽位填充逻辑（四层整合）
+      symptom_dict.py      # ★新增★ Layer 1: 症状词典 (317 keywords)
+      llm_extractor.py    # ★新增★ Layer 2: LLM症状抽取
+      kg_validator.py      # ★新增★ Layer 4: 知识图谱校验
   graph/
     builder.py             # LangGraph 状态机构建与编译
     nodes/                 # 各种节点
       decision.py          # 意图识别
-      normalize.py         # ★优化★ Agent 1: 语义对齐 (先于slot_fill执行)
+      normalize.py         # 语义对齐
       es_rag.py           # 流程文档检索（ES）
       milvus_rag.py        # 症状向量检索（Milvus）
       check_docs.py        # 检索结果评估
       rewrite.py           # Query 重写
       answer.py            # 答案生成
       trim_history.py      # 历史裁剪
-      diagnosis.py         # 主编排器 (新增 knowledge_graph 集成)
-      slot_fill.py         # Agent 2: 槽位填充
-      knowledge_graph.py   # ★新增★ Agent 2.5: 知识图谱工具
-      risk_check.py        # Agent 3: 风险评估
-      question_gen.py      # Agent 4: 追问生成 (利用伴随症状)
-      completion.py        # Agent 5: 结束判断
+      diagnosis.py         # 主编排器
+      slot_fill.py         # 槽位填充
+      knowledge_graph.py   # 知识图谱工具
+      risk_check.py        # 风险评估
+      question_gen.py      # 追问生成（利用KG判别性症状）
+      completion.py        # 结束判断
   infra/
     redis_client.py        # Redis 连接 & LangGraph RedisSaver
     es_client.py           # Elasticsearch 客户端封装
     milvus_client.py       # Milvus 客户端封装
+    neo4j_client.py       # ★新增★ Neo4j 客户端 (向量搜索+图推理)
   tools/
     patient_tools.py       # 病例查询工具
-    knowledge_graph_tool.py # ★新增★ 知识图谱工具 (symptom_associations等)
+    knowledge_graph_tool.py # 知识图谱工具 (混合检索)
   sessions/
     manager.py             # 会话管理：user_id / thread_id 元数据
   services/
@@ -258,6 +334,7 @@ app/
   - Redis：会话状态 & LangGraph Checkpoint & 用户/会话元数据。
   - Elasticsearch：流程/制度类文档检索。
   - Milvus：医疗知识 / 症状库向量检索。
+  - Neo4j：症状知识图谱（图数据库）+ 向量索引（语义匹配）。
   - DashScope：Chat & Embedding 模型。
 - 会话管理（`app/sessions`）
   - 基于 Redis 管理 `user_id` / `thread_id` 关系、会话标题、创建时间、最近活跃时间、删除标记等。
@@ -272,6 +349,7 @@ app/
 - Redis
 - Elasticsearch
 - Milvus（或兼容协议的向量库）
+- Neo4j 5.x（图数据库 + 向量索引支持）
 - DashScope 账号与 API Key（兼容 OpenAI API）
 
 主要 Python 依赖（摘要）：
@@ -346,6 +424,10 @@ docker compose up -d
 # Elasticsearch + Milvus（单机，内置 Etcd/MinIO）
 cd ../es_milvus_DB
 docker compose up -d
+
+# Neo4j 5.x（图数据库 + 向量索引）
+cd ../neo4j
+docker compose up -d
 ```
 
 ### 2. 安装依赖
@@ -386,6 +468,21 @@ pip install -r requirements.txt
   如需调整 Milvus 地址/集合/索引参数，修改脚本顶部 `MILVUS_URI`、`MILVUS_COLLECTION`、`DATA_PATH`。
 
 > 数据清洗：原始问答需先用 LLM 改写成安全回答 `safe_answer`、推荐科室 `departments`、症状标签 `tags`（见 `demo/项目设计.md`），再执行入库脚本。
+
+- Neo4j 知识图谱（症状-科室映射）：
+  ```bash
+  # 数据位置：data/knowledge_graph/
+  # - symptoms.json: 100个症状（含317个keywords）
+  # - departments.json: 50个科室
+  # - relations/: 症状-科室映射、伴随症状关系、疾病关系
+
+  # 导入数据到 Neo4j：
+  cd data/knowledge_graph
+  python import_to_neo4j.py
+
+  # 构建向量索引（用于语义匹配）：
+  python build_symptom_vector_index.py
+  ```
 
 ### 4. 启动后端服务
 ```bash
