@@ -60,3 +60,78 @@ def get_patient_by_id_mcp(patient_id: str) -> str:
     except Exception as e:
         logger.error(f"MCP调用失败: {e}")
         return f'{{"error": "MCP调用失败: {str(e)}"}}'
+
+
+def symptom_associations_mcp(symptoms: list) -> str:
+    try:
+        client = MCPClient()
+        return client.call_tool("symptom_associations", {"symptoms": symptoms})
+    except Exception as e:
+        logger.error(f"MCP调用失败: {e}")
+        return f'{{"error": "MCP调用失败: {str(e)}"}}'
+
+
+def department_by_symptom_mcp(symptom: str) -> str:
+    try:
+        client = MCPClient()
+        return client.call_tool("department_by_symptom", {"symptom": symptom})
+    except Exception as e:
+        logger.error(f"MCP调用失败: {e}")
+        return f'{{"error": "MCP调用失败: {str(e)}"}}'
+
+
+def emergency_check_mcp(symptoms: list) -> str:
+    try:
+        client = MCPClient()
+        return client.call_tool("emergency_check", {"symptoms": symptoms})
+    except Exception as e:
+        logger.error(f"MCP调用失败: {e}")
+        return f'{{"error": "MCP调用失败: {str(e)}"}}'
+
+
+def symptom_search_mcp(keyword: str) -> str:
+    try:
+        client = MCPClient()
+        return client.call_tool("symptom_search", {"keyword": keyword})
+    except Exception as e:
+        logger.error(f"MCP调用失败: {e}")
+        return f'{{"error": "MCP调用失败: {str(e)}"}}'
+
+
+def full_symptom_info_mcp(symptom: str) -> str:
+    try:
+        client = MCPClient()
+        return client.call_tool("full_symptom_info", {"symptom": symptom})
+    except Exception as e:
+        logger.error(f"MCP调用失败: {e}")
+        return f'{{"error": "MCP调用失败: {str(e)}"}}'
+
+
+def hybrid_retrieval_mcp(query_text: str, known_symptoms: list = None) -> str:
+    try:
+        client = MCPClient()
+        return client.call_tool(
+            "hybrid_retrieval",
+            {"query_text": query_text, "known_symptoms": known_symptoms or []},
+        )
+    except Exception as e:
+        logger.error(f"MCP调用失败: {e}")
+        return f'{{"error": "MCP调用失败: {str(e)}"}}'
+
+
+def discriminative_symptoms_mcp(
+    known_symptoms: list, candidate_symptoms: list, limit: int = 5
+) -> str:
+    try:
+        client = MCPClient()
+        return client.call_tool(
+            "discriminative_symptoms",
+            {
+                "known_symptoms": known_symptoms,
+                "candidate_symptoms": candidate_symptoms,
+                "limit": limit,
+            },
+        )
+    except Exception as e:
+        logger.error(f"MCP调用失败: {e}")
+        return f'{{"error": "MCP调用失败: {str(e)}"}}'

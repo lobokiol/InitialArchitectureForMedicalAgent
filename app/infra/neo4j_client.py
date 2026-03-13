@@ -42,7 +42,11 @@ class Neo4jClient:
                 config = json.load(f)["neo4j"]
 
             self._driver = GraphDatabase.driver(
-                config["uri"], auth=(config["username"], config["password"])
+                config["uri"],
+                auth=(config["username"], config["password"]),
+                max_connection_lifetime=3600,
+                max_connection_pool_size=50,
+                connection_acquisition_timeout=60,
             )
             self._driver.verify_connectivity()
             print("✓ Neo4j 客户端连接成功")

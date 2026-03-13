@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal, Annotated, Any
+from typing import List, Optional, Literal, Annotated, Any, Dict
 
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage
@@ -87,6 +87,15 @@ class AppState(BaseModel):
     diagnosis_missing_slots: List[str] = Field(default_factory=list)
     diagnosis_type: str = "in_progress"
     diagnosis_next_step: Optional[str] = None
+
+    # 知识图谱相关字段
+    diagnosis_associated_symptoms: List[str] = Field(default_factory=list)  # 伴随症状
+    diagnosis_recommended_departments: List[str] = Field(
+        default_factory=list
+    )  # 推荐科室
+    diagnosis_emergency_rules: List[Dict[str, Any]] = Field(
+        default_factory=list
+    )  # 危急规则
 
     @field_validator("medical_docs", mode="before")
     @classmethod

@@ -56,11 +56,11 @@ def completion_node(state: AppState) -> dict:
     if slots is None:
         slots = DiagnosisSlots()
 
-    if slots.is_complete():
+    if slots.is_minimum_filled():
         return {
             "diagnosis_completed": True,
             "diagnosis_terminated": False,
-            "diagnosis_termination_reason": "slots_filled",
+            "diagnosis_termination_reason": "minimum_slots_filled",
         }
 
     if question_count >= config.DIAGNOSIS_MAX_QUESTIONS:
