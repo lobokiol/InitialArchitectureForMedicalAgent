@@ -427,7 +427,7 @@ docker compose up -d
 
 # Neo4j 5.x（图数据库 + 向量索引）
 cd ../neo4j
-docker compose up -d
+docker run -d --name neo4j -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/password neo4j
 ```
 
 ### 2. 安装依赖
