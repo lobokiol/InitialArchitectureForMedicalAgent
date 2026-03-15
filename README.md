@@ -17,15 +17,23 @@ web页面：
 - 医疗导诊对话
   - 支持面向「症状问诊」和「就医流程」的多轮对话。
   - **多轮问诊系统**：通过槽位填充逐步收集患者症状信息，输出结构化问诊表。
+  - **语义症状匹配**：基于向量嵌入的语义对齐，将口语化症状描述映射至标准医学术语。
   - **四层症状提取架构**：
-    - Layer 1: 症状词典 (317个keywords快速匹配)
+    - Layer 0: Neo4j CM3KG 向量语义匹配 (embedding 余弦相似度)
+    - Layer 1: 症状词典 (317个keywords快速匹配) ⚠️ 已废弃，改用向量匹配
     - Layer 2: LLM抽取 (Qwen Turbo语义提取)
     - Layer 3: 合并到Slot (整合多源结果)
     - Layer 4: 知识图谱校验 (验证+扩展+消歧)
+  - **KG + RAG 融合推理**：融合知识图谱与多路RAG检索的综合科室推荐。
+  - **MCP 工具调度**：所有数据源通过 MCP (Model Context Protocol) 统一调度。
   - **危险信号检测**：实时检测胸痛、呼吸困难等危急症状，立即告警建议挂急诊。
   - 结合向量检索与流程文档检索，给出答案和建议。
 - 知识图谱增强
-  - **Neo4j图数据库**：存储症状-科室映射、伴随症状、疾病关系
+  - **Neo4j图数据库**：存储 CM3KG 症状-科室映射、伴随症状、疾病关系
+    - 3,108 个症状节点
+    - 8,618 个疾病节点
+    - 88 个科室节点
+    - 32,876 条症状-疾病关系
   - **向量搜索**：症状语义匹配 (text-embedding-v2)
   - **两阶段检索**：向量搜索 + 图推理 (多跳查询)
   - **判别性症状**：动态生成追问问题，帮助区分不同科室
@@ -42,8 +50,17 @@ web页面：
   - **混合检索增强**（milvus_rag 节点）：
     - 双路检索：ES (rag_es) + Milvus (medical_knowledge)
     - RRF (Reciprocal Rank Fusion) 融合排序
-    - LLM (qwen-turbo) Rerank 精排
+    - LLM (qwen3-rerank) Rerank 精排
   - DashScope Embedding + Chat 模型。
+- MCP (Model Context Protocol) 工具调度
+  - 所有数据源通过 MCP 统一调度
+  - **MCP Server**: `app/mcp/patient_server.py`
+  - **MCP Tools**:
+    - Neo4j: `infer_department`, `semantic_match_symptoms`, `get_possible_diseases`
+    - Milvus: `milvus_search`
+    - Elasticsearch: `es_search`
+    - PostgreSQL: `pg_get_patient_by_name`, `pg_get_patient_history`, `pg_search_patients`
+    - 综合推理: `kg_rag_fusion`
 - 命令行前端（rich CLI）
   - `cli.py` 提供交互式 CLI，支持斜杠命令和 Markdown 渲染。
   - 通过 REST API 与后端通信，可作为 Web 前端的参考。
@@ -231,6 +248,7 @@ app/
 - Elasticsearch
 - Milvus（或兼容协议的向量库）
 - Neo4j 5.x（图数据库 + 向量索引支持）
+- PostgreSQL（患者数据库）
 - DashScope 账号与 API Key（兼容 OpenAI API）
 
 主要 Python 依赖（摘要）：
@@ -243,9 +261,12 @@ app/
 - `redis`
 - `pymilvus`
 - `elasticsearch`
+- `neo4j`
+- `sqlalchemy`（PostgreSQL）
 - `python-dotenv`
 - `rich`
 - `requests`
+- `mcp`（Model Context Protocol）
 
 （具体依赖请根据实际 `pyproject.toml` / `requirements.txt` 或本地环境为准。）
 
@@ -264,6 +285,7 @@ app/
 - `ES_URL`：Elasticsearch 地址，默认 `http://localhost:9200`。
 - `MILVUS_URI`：Milvus 地址，默认 `http://localhost:19530`。
 - `REDIS_URI`：Redis 地址，默认 `redis://localhost:6379`。
+- `POSTGRES_URI`：PostgreSQL 地址，默认 `postgresql://postgres:postgres@localhost:5432/hospital`。
 - `ES_INDEX_NAME`：流程文档索引名，默认 `hospital_procedures`。
 - `MILVUS_COLLECTION`：Milvus 集合名，默认 `medical_knowledge`。
 - `MILVUS_TOP_K` / `MILVUS_MIN_SIM` / `MILVUS_MAX_DOCS`：Milvus 检索参数。
@@ -309,6 +331,9 @@ docker compose up -d
 # Neo4j 5.x（图数据库 + 向量索引）
 cd ../neo4j
 docker run -d --name neo4j -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/password neo4j
+
+# PostgreSQL（患者数据库）
+docker run -d --name postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=hospital postgres
 ```
 
 ### 2. 安装依赖
@@ -353,16 +378,18 @@ pip install -r requirements.txt
 - Neo4j 知识图谱（症状-科室映射）：
   ```bash
   # 数据位置：data/knowledge_graph/
-  # - symptoms.json: 100个症状（含317个keywords）
-  # - departments.json: 50个科室
-  # - relations/: 症状-科室映射、伴随症状关系、疾病关系
+  # - cm3kg/: CM3KG 原始数据
+  #   - symptom.json: 3,108 个症状
+  #   - disease.json: 8,618 个疾病
+  #   - department.json: 88 个科室
+  #   - relations/: 症状-疾病-科室关系
 
   # 导入数据到 Neo4j：
   cd data/knowledge_graph
-  python import_to_neo4j.py
+  python import_cm3kg.py
 
   # 构建向量索引（用于语义匹配）：
-  python build_symptom_vector_index.py
+  # 已在 import_cm3kg.py 中自动完成
   ```
 
 ### 4. 启动后端服务

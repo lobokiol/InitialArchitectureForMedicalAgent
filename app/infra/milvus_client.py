@@ -28,9 +28,11 @@ milvus_store = Milvus(
 
 
 def search_medical_docs(query: str) -> List[RetrievedDoc]:
+    search_params = {"ef": max(config.MILVUS_TOP_K * 2, 64)}
     docs_and_scores = milvus_store.similarity_search_with_score(
         query,
         k=config.MILVUS_TOP_K,
+        param=search_params,
     )
 
     if not docs_and_scores:
@@ -61,19 +63,16 @@ def search_medical_docs(query: str) -> List[RetrievedDoc]:
         )
 
     filtered = [
-        d for d in converted
-        if (d.score is None) or (d.score >= config.MILVUS_MIN_SIM)
+        d for d in converted if (d.score is None) or (d.score >= config.MILVUS_MIN_SIM)
     ]
 
     if not filtered and converted:
         filtered = converted[:1]
 
-    filtered.sort(
-        key=lambda d: (d.score is None, -(d.score or 0.0))
-    )
+    filtered.sort(key=lambda d: (d.score is None, -(d.score or 0.0)))
 
     if len(filtered) > config.MILVUS_MAX_DOCS:
-        filtered = filtered[:config.MILVUS_MAX_DOCS]
+        filtered = filtered[: config.MILVUS_MAX_DOCS]
 
     logger.info(
         "search_medical_docs: got %d docs after filter & top%d (before=%d)",

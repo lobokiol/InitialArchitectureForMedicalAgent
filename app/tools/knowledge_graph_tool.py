@@ -304,6 +304,50 @@ def get_full_symptom_info(symptom: str) -> Dict[str, Any]:
     }
 
 
+def infer_department(symptoms: List[str], top_k: int = 3) -> Dict[str, Any]:
+    """
+    基于多症状推理推荐科室（带置信度）
+
+    Args:
+        symptoms: 症状列表
+        top_k: 返回前 k 个科室
+
+    Returns:
+        科室推荐结果，包含置信度
+    """
+    if is_neo4j_available():
+        try:
+            return get_neo4j_client().infer_department(symptoms, top_k)
+        except Exception as e:
+            print(f"科室推理失败: {e}")
+
+    return {
+        "departments": [],
+        "confidence": {"overall_confidence": 0.0},
+        "error": "Neo4j 不可用",
+    }
+
+
+def get_possible_diseases(symptoms: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    根据症状查询可能的疾病
+
+    Args:
+        symptoms: 症状列表
+        limit: 返回数量
+
+    Returns:
+        疾病列表
+    """
+    if is_neo4j_available():
+        try:
+            return get_neo4j_client().get_diseases_by_symptoms(symptoms, limit)
+        except Exception as e:
+            print(f"查询疾病失败: {e}")
+
+    return []
+
+
 def create_knowledge_graph_tools():
     """
     创建 LangChain Tool 列表

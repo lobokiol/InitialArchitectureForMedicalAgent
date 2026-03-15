@@ -20,14 +20,26 @@ from app.graph.nodes.diagnosis_router import diagnosis_router_node
 
 
 def route_after_diagnosis_router(state: AppState) -> str:
-    """诊断路由节点之后的路由"""
-    next_step = getattr(state, "diagnosis_next_step", None)
-    if next_step == "emergency":
+    """诊断路由节点之后的路由
+
+    根据 diagnosis 节点返回的结果决定下一步:
+    - emergency: 危急情况
+    - complete: 诊断完成 → 直接输出 (跳过RAG)
+    - in_progress: 需要追问
+    """
+    # 检查危急
+    if state.diagnosis_type == "emergency":
         return "emergency"
-    if next_step == "complete":
-        return "milvus_rag"
-    if next_step == "in_progress":
+
+    # 检查是否需要追问
+    need_more = getattr(state, "need_more_info", False)
+    if need_more:
         return "in_progress"
+
+    # 检查诊断是否完成
+    if state.diagnosis_completed:
+        return "answer_generate"
+
     return "answer_generate"
 
 

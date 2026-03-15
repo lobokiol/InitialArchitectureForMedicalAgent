@@ -12,7 +12,11 @@ from app.graph.nodes.question_gen import question_gen_node
 from app.graph.nodes.normalize import normalize_text
 from langchain_core.messages import AIMessage
 from app.mcp.client import symptom_associations_mcp, department_by_symptom_mcp
+from app.infra.neo4j_client import get_neo4j_client
 import json
+import random
+
+CONFIDENT_THRESHOLD = 0.65
 
 
 def fill_slots_with_input(
@@ -131,6 +135,7 @@ def diagnosis_node(state: AppState) -> dict:
         "diagnosis_termination_reason"
     )
 
+    # 危急情况
     if state.diagnosis_risk_level == "critical":
         warning = get_emergency_warning(state.diagnosis_risk_signals)
         return {
@@ -141,15 +146,110 @@ def diagnosis_node(state: AppState) -> dict:
             "diagnosis_slots": state.diagnosis_slots,
         }
 
+    # 诊断完成：KG + RAG 综合评估
     if state.diagnosis_completed:
-        completion_msg = get_completion_message()
-        return {
-            "messages": [AIMessage(content=completion_msg)],
-            "diagnosis_completed": True,
-            "diagnosis_type": "complete",
-            "diagnosis_slots": state.diagnosis_slots,
-        }
+        symptoms = filled_slots.symptoms if filled_slots.symptoms else []
 
+        # KG + RAG 综合推理
+        fusion_result = None
+
+        if symptoms:
+            try:
+                from app.graph.nodes.kg_rag_fusion import diagnose_with_kg_rag
+
+                # 调用 KG + RAG 综合推理
+                fusion_result = diagnose_with_kg_rag(
+                    symptoms=symptoms,
+                    user_query=user_input,
+                    top_k=3,
+                )
+
+                logger.info(f"KG+RAG 综合推理: {fusion_result.get('departments', [])}")
+                logger.info(f"数据来源: {fusion_result.get('sources', {})}")
+
+            except Exception as e:
+                logger.warning(f"KG+RAG 推理失败: {e}")
+                # 降级到纯 KG
+                try:
+                    client = get_neo4j_client()
+                    if client:
+                        fusion_result = client.infer_department(symptoms, top_k=3)
+                except:
+                    pass
+
+        # 提取结果
+        if fusion_result and fusion_result.get("departments"):
+            final_departments = fusion_result["departments"]
+            confidence_result = fusion_result.get("confidence", {})
+            overall_conf = (
+                confidence_result.get("overall_confidence", 0)
+                if confidence_result
+                else 0
+            )
+            sources_info = fusion_result.get("sources", {})
+        else:
+            final_departments = []
+            confidence_result = {"overall_confidence": 0}
+            overall_conf = 0
+            sources_info = {}
+
+        # 保存推理结果到状态
+        state.department_inference = fusion_result
+        state.confidence = confidence_result
+
+        # 置信度 >= 0.65 → 直接输出分诊建议
+        if overall_conf >= CONFIDENT_THRESHOLD:
+            lines = []
+            lines.append("根据您描述的症状，我的分析结果是：")
+            lines.append("")
+
+            # 显示数据来源
+            if sources_info.get("kg", 0) > 0 and sources_info.get("rag", 0) > 0:
+                lines.append(f"📊 综合分析 (知识图谱 + 文档检索)")
+            elif sources_info.get("kg", 0) > 0:
+                lines.append(f"📊 知识图谱推理")
+            elif sources_info.get("rag", 0) > 0:
+                lines.append(f"📊 文档检索分析")
+            lines.append("")
+
+            if final_departments:
+                for i, dept in enumerate(final_departments, 1):
+                    prob_pct = dept.get("probability", 0) * 100
+                    lines.append(f"{i}. {dept['name']} (置信度: {prob_pct:.0f}%)")
+            else:
+                lines.append("暂未匹配到明确科室，建议到医院导诊台咨询。")
+
+            lines.append("")
+            lines.append("✅ 置信度较高，建议您选择上述科室就诊。")
+
+            completion_msg = "\n".join(lines)
+            return {
+                "messages": [AIMessage(content=completion_msg)],
+                "diagnosis_completed": True,
+                "diagnosis_type": "complete",
+                "diagnosis_slots": state.diagnosis_slots,
+                "need_more_info": False,
+            }
+
+        # 置信度 < 0.65 → 需要追问
+        else:
+            # 生成追问问题（使用 KG 结果）
+            kg_result = {
+                "departments": final_departments,
+                "confidence": confidence_result,
+            }
+            questions = _generate_followup_questions(symptoms, kg_result, overall_conf)
+            return {
+                "messages": [AIMessage(content=questions)],
+                "diagnosis_completed": False,
+                "diagnosis_type": "in_progress",
+                "diagnosis_slots": state.diagnosis_slots,
+                "need_more_info": True,
+                "department_inference": kg_result,
+                "confidence": confidence_result,
+            }
+
+    # 诊断未完成：继续追问
     question_result = question_gen_node(
         state,
         associated_symptoms=associated_symptoms,
@@ -167,3 +267,79 @@ def diagnosis_node(state: AppState) -> dict:
         "diagnosis_question_count": state.diagnosis_question_count,
         "diagnosis_missing_slots": state.diagnosis_missing_slots,
     }
+
+
+def _generate_followup_questions(
+    symptoms: list, kg_result: dict, overall_conf: float
+) -> str:
+    """生成追问问题 - 完全依赖 KG 数据"""
+    lines = []
+
+    # 从 KG 获取初步科室推荐
+    if kg_result and kg_result.get("departments"):
+        lines.append("根据您描述的症状，初步分析可能是：")
+        for i, dept in enumerate(kg_result["departments"][:2], 1):
+            prob_pct = dept.get("probability", 0) * 100
+            lines.append(f"  {i}. {dept['name']} ({prob_pct:.0f}%)")
+
+    lines.append("")
+    lines.append(
+        f"为了更准确判断（当前置信度 {overall_conf:.0%}），请问您还有以下症状吗？"
+    )
+
+    # 从 KG 查询每个症状的伴随症状，动态生成追问
+    try:
+        from app.infra.neo4j_client import get_neo4j_client
+
+        client = get_neo4j_client()
+
+        if client:
+            # 收集所有可能的伴随症状（处理 dict 格式）
+            all_associated = []
+
+            for symptom in symptoms:
+                # 查询该症状的伴随症状
+                associated = client.query_associated_symptoms(symptom)
+                # 提取症状名称
+                for item in associated:
+                    if isinstance(item, dict):
+                        name = item.get("name")
+                    else:
+                        name = item
+                    if name:
+                        all_associated.append(name)
+
+            # 去重
+            all_associated = list(set(all_associated))
+
+            # 排除已知的症状
+            known_symptoms = set(symptoms)
+            followup_symptoms = [s for s in all_associated if s not in known_symptoms]
+
+            if followup_symptoms:
+                # 随机选 2-3 个追问
+                import random
+
+                selected = random.sample(
+                    followup_symptoms, min(3, len(followup_symptoms))
+                )
+
+                lines.append("")
+                for s in selected:
+                    lines.append(f"  ▸ 是否有 {s}?")
+            else:
+                lines.append("")
+                lines.append("  ▸ 请补充更多症状信息")
+        else:
+            lines.append("")
+            lines.append("  ▸ 请补充更多症状信息")
+
+    except Exception as e:
+        print(f"KG查询失败: {e}")
+        lines.append("")
+        lines.append("  ▸ 请补充更多症状信息")
+
+    lines.append("")
+    lines.append("您的回答可以帮助我更准确地为您推荐科室。")
+
+    return "\n".join(lines)

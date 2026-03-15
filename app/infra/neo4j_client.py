@@ -8,10 +8,14 @@ Neo4j 知识图谱客户端
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from app.core.llm import get_embedding_model
+logger = logging.getLogger(__name__)
+
+# 延迟导入，避免 MCP 启动时报错
+# from app.core.llm import get_embedding_model
 
 
 class Neo4jClient:
@@ -49,9 +53,9 @@ class Neo4jClient:
                 connection_acquisition_timeout=60,
             )
             self._driver.verify_connectivity()
-            print("✓ Neo4j 客户端连接成功")
+            logger.info("✓ Neo4j 客户端连接成功")
         except Exception as e:
-            print(f"✗ Neo4j 连接失败: {e}")
+            logger.warning(f"Neo4j 连接失败: {e}")
             self._driver = None
 
     def close(self):
@@ -240,6 +244,9 @@ class Neo4jClient:
             return []
 
         try:
+            # 延迟导入
+            from app.core.llm import get_embedding_model
+
             embedding_model = get_embedding_model()
             query_embedding = embedding_model.embed_query(query_text)
 
@@ -266,7 +273,7 @@ class Neo4jClient:
                 ]
 
         except Exception as e:
-            print(f"向量搜索失败: {e}")
+            logger.warning(f"向量搜索失败: {e}")
             return []
 
     def graph_reasoning_by_symptoms(
@@ -419,6 +426,294 @@ class Neo4jClient:
             ],
             "possible_diseases": graph_result.get("diseases", []),
         }
+
+    def get_symptom_dept_probs(self, symptom: str) -> Dict[str, Any]:
+        """
+        获取症状-科室概率分布
+
+        Args:
+            symptom: 症状名称
+
+        Returns:
+            包含概率分布的字典
+        """
+        if not self._driver:
+            return {}
+
+        try:
+            with self._driver.session() as session:
+                result = session.run(
+                    """
+                    MATCH (s:Symptom {name: $symptom})
+                    RETURN s.dept_probs as probs, s.dept_probs_total as total,
+                           s.top_department as top_dept, s.top_prob as top_prob
+                """,
+                    symptom=symptom,
+                )
+                record = result.single()
+                if record and record["probs"]:
+                    return {
+                        "symptom": symptom,
+                        "probs": json.loads(record["probs"]),
+                        "total": record["total"],
+                        "top_department": record["top_dept"],
+                        "top_prob": record["top_prob"],
+                    }
+        except Exception as e:
+            logger.warning(f"获取症状概率失败: {e}")
+
+        return {}
+
+    def calculate_confidence(
+        self,
+        symptom_probs: List[Dict[str, Any]],
+        symptom_count: int,
+    ) -> Dict[str, float]:
+        """
+        计算综合置信度
+
+        基于:
+        1. 概率分布熵 (越集中越高)
+        2. 症状覆盖度 (症状越多置信度越高)
+        3. 路径一致性 (多症状指向同科室)
+
+        Args:
+            symptom_probs: 各症状的科室概率列表
+            symptom_count: 收集到的症状数量
+
+        Returns:
+            置信度指标
+        """
+        import math
+
+        # 1. 多症状一致性置信度 (核心!)
+        consistency_confidence = 0.0
+        if symptom_probs and len(symptom_probs) > 0:
+            # 统计每个科室被推荐的次数
+            dept_counts = {}
+            for sp in symptom_probs:
+                probs = sp.get("probs", {})
+                if probs:
+                    top_dept = max(probs.items(), key=lambda x: x[1])[0]
+                    dept_counts[top_dept] = dept_counts.get(top_dept, 0) + 1
+
+            # 计算一致性：最多症状指向同一科室的比例
+            if dept_counts:
+                max_count = max(dept_counts.values())
+                total_symptoms = len(symptom_probs)
+                consistency = max_count / total_symptoms if total_symptoms > 0 else 0
+
+                # 3个以上症状且一致性100%时给最高分
+                if total_symptoms >= 3 and consistency == 1.0:
+                    consistency_confidence = 1.0
+                elif consistency == 1.0:
+                    consistency_confidence = 0.8
+                elif consistency >= 0.5:
+                    consistency_confidence = 0.5
+                else:
+                    consistency_confidence = 0.3
+
+        # 2. 最高概率置信度
+        top_prob_confidence = 0.0
+        if symptom_probs:
+            top_probs = []
+            for sp in symptom_probs:
+                probs = sp.get("probs", {})
+                if probs:
+                    top_prob = max(probs.values())
+                    top_probs.append(top_prob)
+
+            if top_probs:
+                avg_top_prob = sum(top_probs) / len(top_probs)
+                top_prob_confidence = min(avg_top_prob * 1.25, 1.0)
+
+        # 2. 概率熵置信度
+        entropy_confidence = 0.0
+        if symptom_probs:
+            # 合并所有症状的科室概率
+            merged_probs = {}
+            for sp in symptom_probs:
+                for dept, prob in sp.get("probs", {}).items():
+                    merged_probs[dept] = merged_probs.get(dept, 0) + prob
+
+            # 归一化
+            total = sum(merged_probs.values())
+            if total > 0:
+                normalized = {k: v / total for k, v in merged_probs.items()}
+
+                # 计算 Shannon 熵
+                entropy = -sum(p * math.log2(p) for p in normalized.values() if p > 0)
+                max_entropy = math.log2(len(normalized)) if normalized else 1
+
+                # 转换为置信度
+                entropy_confidence = (
+                    1 - (entropy / max_entropy) if max_entropy > 0 else 0
+                )
+
+        # 3. 症状覆盖度置信度 (调整：3个症状就达到最高)
+        coverage_confidence = min(symptom_count / 3, 1.0)
+
+        # 3. 综合置信度 (加权平均)
+        # 一致性最重要，占50%
+        overall_confidence = (
+            consistency_confidence * 0.5
+            + top_prob_confidence * 0.25
+            + coverage_confidence * 0.25
+        )
+
+        return {
+            "consistency_confidence": round(consistency_confidence, 3),
+            "top_prob_confidence": round(top_prob_confidence, 3),
+            "entropy_confidence": round(entropy_confidence, 3),
+            "coverage_confidence": round(coverage_confidence, 3),
+            "overall_confidence": round(overall_confidence, 3),
+            "symptom_count": symptom_count,
+        }
+
+    def infer_department(
+        self,
+        symptoms: List[str],
+        top_k: int = 3,
+    ) -> Dict[str, Any]:
+        """
+        多症状推理科室推荐
+
+        Args:
+            symptoms: 症状列表
+            top_k: 返回前 k 个科室
+
+        Returns:
+            包含科室推荐和置信度的字典
+        """
+        if not self._driver or not symptoms:
+            return {
+                "departments": [],
+                "confidence": {
+                    "overall_confidence": 0.0,
+                    "entropy_confidence": 0.0,
+                    "coverage_confidence": 0.0,
+                    "symptom_count": 0,
+                },
+            }
+
+        # 1. 语义匹配标准化症状名称
+        normalized_symptoms = set()
+        for symptom in symptoms:
+            matched = self.semantic_match_symptoms(symptom, top_k=1, threshold=0.5)
+            if matched:
+                normalized_symptoms.add(matched[0]["name"])
+            else:
+                keyword_matches = self.query_symptoms_by_keyword(symptom)
+                if keyword_matches:
+                    normalized_symptoms.add(keyword_matches[0])
+
+        normalized_symptoms = list(normalized_symptoms)
+        if not normalized_symptoms:
+            return {
+                "departments": [],
+                "confidence": {
+                    "overall_confidence": 0.0,
+                    "reason": "未找到匹配的症状",
+                },
+            }
+
+        # 2. 获取每个症状的科室概率
+        symptom_probs = []
+        for symptom in normalized_symptoms:
+            probs = self.get_symptom_dept_probs(symptom)
+            if probs:
+                symptom_probs.append(probs)
+
+        if not symptom_probs:
+            return {
+                "departments": [],
+                "confidence": {
+                    "overall_confidence": 0.0,
+                    "reason": "未找到症状对应的科室数据",
+                },
+            }
+
+        # 2. 合并概率 (加权投票)
+        dept_scores = {}
+        for sp in symptom_probs:
+            top_dept = sp.get("top_department")
+            top_prob = sp.get("top_prob", 0)
+            if top_dept:
+                dept_scores[top_dept] = dept_scores.get(top_dept, 0) + top_prob
+
+        # 3. 排序并返回 Top-K
+        sorted_depts = sorted(dept_scores.items(), key=lambda x: -x[1])
+        total_score = sum(s for _, s in sorted_depts)
+
+        departments = [
+            {
+                "name": dept,
+                "score": round(score, 3),
+                "probability": round(score / total_score, 3) if total_score > 0 else 0,
+            }
+            for dept, score in sorted_depts[:top_k]
+        ]
+
+        # 4. 计算置信度
+        confidence = self.calculate_confidence(symptom_probs, len(symptoms))
+
+        return {
+            "departments": departments,
+            "confidence": confidence,
+            "symptoms_used": len(symptom_probs),
+            "all_symptoms": symptoms,
+        }
+
+    def get_diseases_by_symptoms(
+        self,
+        symptoms: List[str],
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """
+        根据症状查询可能的疾病
+
+        Args:
+            symptoms: 症状列表
+            limit: 返回数量
+
+        Returns:
+            疾病列表，包含名称和关联科室
+        """
+        if not self._driver or not symptoms:
+            return []
+
+        try:
+            with self._driver.session() as session:
+                # 使用多跳查询
+                result = session.run(
+                    """
+                    MATCH (s:Symptom)-[:可能导致]->(d:Disease)-[:治疗科室]->(dept:Department)
+                    WHERE s.name IN $symptoms
+                    WITH d, dept, count(s) as symptom_match
+                    ORDER BY symptom_match DESC
+                    LIMIT $limit
+                    RETURN d.name as disease, dept.name as department,
+                           symptom_match, d.description as desc
+                """,
+                    symptoms=symptoms,
+                    limit=limit,
+                )
+
+                return [
+                    {
+                        "disease": record["disease"],
+                        "department": record["department"],
+                        "symptom_match": record["symptom_match"],
+                        "description": record.get("desc", "")[:200]
+                        if record.get("desc")
+                        else "",
+                    }
+                    for record in result
+                ]
+
+        except Exception as e:
+            logger.warning(f"查询疾病失败: {e}")
+            return []
 
 
 def get_neo4j_client() -> Neo4jClient:

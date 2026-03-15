@@ -24,6 +24,9 @@ DASHSCOPE_API_KEY: str = _require_env("DASHSCOPE_API_KEY")
 ES_URL: str = os.getenv("ES_URL", "http://localhost:9200")
 MILVUS_URI: str = os.getenv("MILVUS_URI", "http://localhost:19530")
 REDIS_URI: str = os.getenv("REDIS_URI", "redis://localhost:6379")
+POSTGRES_URI: str = os.getenv(
+    "POSTGRES_URI", "postgresql://postgres:postgres@localhost:5432/hospital"
+)
 
 # Index / collection defaults
 ES_INDEX_NAME: str = os.getenv("ES_INDEX_NAME", "hospital_procedures")

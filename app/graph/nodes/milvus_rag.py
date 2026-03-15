@@ -65,7 +65,7 @@ def rerank_with_qwen(
                 "Content-Type": "application/json",
             },
             json={
-                "model": "qwen3-rerank", # BGE—reranker v2                
+                "model": "qwen3-rerank",  # BGE—reranker v2
                 "query": query,
                 "documents": docs_text,
                 "top_n": min(top_n, len(candidates)),
@@ -78,7 +78,7 @@ def rerank_with_qwen(
         reranked = []
         if "results" in result:
             for item in result["results"]:
-                idx = item["document"]["index"]
+                idx = item["index"]
                 reranked.append(candidates[idx])
 
         logger.info(f"Rerank 成功，返回 {len(reranked)} 条")

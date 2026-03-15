@@ -1,13 +1,14 @@
 """
 症状填充器 - 四层架构整合
 
+Layer 0: Neo4j CM3KG 匹配 (新增)
 Layer 1: 词典映射 (symptom_dict.py)
 Layer 2: LLM抽取 (llm_extractor.py)
 Layer 3: 结构化Slot (本文件)
 Layer 4: 知识图谱校验 (kg_validator.py)
 
 流程:
-    用户输入 → 词典匹配 → LLM提取 → 合并 → KG校验 → 最终Slots
+    用户输入 → Neo4j匹配 → 词典匹配 → LLM提取 → 合并 → KG校验 → 最终Slots
 """
 
 from typing import Optional, Any, Set
@@ -16,6 +17,35 @@ from app.domain.diagnosis.symptom_dict import match_symptoms_from_text, get_symp
 
 
 USE_LLM_EXTRACTOR = True
+
+
+def _layer0_neo4j_match(user_input: str) -> dict:
+    """
+    Layer 0: Neo4j CM3KG 向量语义匹配
+    使用 embedding 向量语义对齐，将主诉映射至标准医学术语
+    """
+    try:
+        from app.infra.neo4j_client import get_neo4j_client
+
+        client = get_neo4j_client()
+
+        if client and client._driver:
+            # 向量语义搜索 (阈值 0.7 平衡精度和召回)
+            vector_matches = client.semantic_match_symptoms(
+                user_input, top_k=5, threshold=0.7
+            )
+
+            if vector_matches:
+                symptoms = [m.get("name") for m in vector_matches if m.get("name")]
+                return {
+                    "symptoms": symptoms[:3],
+                    "sources": {s["name"]: "semantic" for s in vector_matches[:3]},
+                    "raw_matches": vector_matches[:3],
+                }
+    except Exception as e:
+        print(f"Layer 0 (Neo4j语义匹配) 失败: {e}")
+
+    return {"symptoms": [], "sources": {}, "raw_matches": []}
 
 
 def fill_slots(
@@ -40,19 +70,64 @@ def fill_slots(
     if not current_slots.chief_complaint:
         current_slots.chief_complaint = user_input
 
-    # ============ Layer 1: 词典映射 ============
-    dict_symptoms = _layer1_dict_match(user_input)
+    # ============ Layer 0: Neo4j CM3KG 匹配 (唯一数据源) ============
+    neo4j_symptoms = _layer0_neo4j_match(user_input)
 
-    # ============ Layer 2: LLM抽取 ============
+    # ============ Layer 1: LLM 抽取 ============
     llm_result = _layer2_llm_extract(user_input)
 
-    # ============ Layer 3: 合并到Slot ============
-    slots = _layer3_merge_to_slots(
-        user_input=user_input,
-        dict_symptoms=dict_symptoms,
-        llm_result=llm_result,
-        existing_slots=current_slots,
-    )
+    # 优先使用 Neo4j 结果，如果没有则用 LLM 兜底
+    if neo4j_symptoms.get("symptoms"):
+        final_symptoms = neo4j_symptoms["symptoms"]
+        sources = {s: "neo4j" for s in final_symptoms}
+    else:
+        final_symptoms = llm_result.get("symptoms", [])
+        sources = {s: "llm" for s in final_symptoms}
+
+    # 合并 LLM 结果（更高优先级）
+    llm_symptoms = llm_result.get("symptoms", [])
+    for s in llm_symptoms:
+        if s not in final_symptoms:
+            final_symptoms.append(s)
+            sources[s] = "llm"
+
+    # 去重并保持顺序
+    seen = set()
+    unique_symptoms = []
+    for s in final_symptoms:
+        if s not in seen:
+            seen.add(s)
+            unique_symptoms.append(s)
+    final_symptoms = unique_symptoms
+
+    # 处理否定症状
+    llm_full = llm_result.get("full_result", {})
+    negative = llm_full.get("negative_symptoms", [])
+    existing_negative = current_slots.negative_symptoms if current_slots else []
+    all_negative = list(set(existing_negative + negative))
+
+    # 从症状中移除被否定的症状
+    final_symptoms = [s for s in final_symptoms if s not in all_negative]
+
+    # 构建 slots
+    slots_dict = current_slots.to_dict()
+    slots_dict["symptoms"] = final_symptoms
+    slots_dict["symptom_sources"] = {
+        k: v for k, v in sources.items() if k not in all_negative
+    }
+    slots_dict["negative_symptoms"] = all_negative
+
+    # LLM 其他字段
+    if llm_full.get("location"):
+        slots_dict["location"] = llm_full["location"]
+    if llm_full.get("duration"):
+        slots_dict["duration"] = llm_full["duration"]
+    if llm_full.get("severity"):
+        slots_dict["severity"] = llm_full["severity"]
+    if llm_full.get("triggers"):
+        slots_dict["triggers"] = llm_full["triggers"]
+
+    slots = DiagnosisSlots(**slots_dict)
 
     # ============ Layer 4: 知识图谱校验 ============
     slots = _layer4_kg_validate(slots, user_input)
@@ -131,21 +206,31 @@ def _layer3_merge_to_slots(
     dict_symptoms: dict,
     llm_result: dict,
     existing_slots: DiagnosisSlots,
+    neo4j_symptoms: dict = None,
 ) -> DiagnosisSlots:
     """
     Layer 3: 合并到结构化Slot
-    合并词典和LLM的结果
+    合并 Neo4j、词典和LLM的结果
+    优先级: LLM > 词典 > Neo4j
     """
+    if neo4j_symptoms is None:
+        neo4j_symptoms = {"symptoms": [], "sources": {}}
+
     # 收集所有症状（去重）
     all_symptoms: Set[str] = set()
     sources = {}
+
+    # 添加 Neo4j 匹配的症状（最低优先级）
+    for s in neo4j_symptoms.get("symptoms", []):
+        all_symptoms.add(s)
+        sources[s] = "neo4j"
 
     # 添加词典匹配的症状
     for s in dict_symptoms.get("symptoms", []):
         all_symptoms.add(s)
         sources[s] = "dict"
 
-    # 添加LLM提取的症状（优先）
+    # 添加LLM提取的症状（最高优先级）
     for s in llm_result.get("symptoms", []):
         all_symptoms.add(s)
         # 如果已存在，升级来源
@@ -160,9 +245,20 @@ def _layer3_merge_to_slots(
     # 构建slots
     llm_full = llm_result.get("full_result", {})
 
+    # 处理否定症状
+    negative = llm_full.get("negative_symptoms", [])
+    existing_negative = existing_slots.negative_symptoms if existing_slots else []
+    all_negative = list(set(existing_negative + negative))
+
+    # 从症状中移除被否定的症状（重要！）
+    final_symptoms = [s for s in final_symptoms if s not in all_negative]
+
     slots_dict = existing_slots.to_dict()
     slots_dict["symptoms"] = final_symptoms
-    slots_dict["symptom_sources"] = sources
+    slots_dict["symptom_sources"] = {
+        k: v for k, v in sources.items() if k not in all_negative
+    }
+    slots_dict["negative_symptoms"] = all_negative
 
     # LLM其他字段
     if llm_full.get("location"):

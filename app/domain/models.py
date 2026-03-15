@@ -97,6 +97,11 @@ class AppState(BaseModel):
         default_factory=list
     )  # 危急规则
 
+    # 科室推理相关字段 (CM3KG)
+    department_inference: Optional[Dict[str, Any]] = None  # 科室推理结果
+    confidence: Optional[Dict[str, Any]] = None  # 置信度
+    need_more_info: bool = False  # 是否需要更多信息
+
     @field_validator("medical_docs", mode="before")
     @classmethod
     def _coerce_medical_docs(cls, v):

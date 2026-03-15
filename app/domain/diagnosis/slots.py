@@ -38,6 +38,9 @@ class DiagnosisSlots(BaseModel):
     chief_complaint: str = ""
 
     symptoms: list[str] = []
+    negative_symptoms: list[str] = Field(
+        default_factory=list, description="排除的症状（用户明确说没有/不有的症状）"
+    )
     uncertain_symptoms: list[str] = Field(
         default_factory=list, description="待确认的症状(KG校验失败)"
     )
