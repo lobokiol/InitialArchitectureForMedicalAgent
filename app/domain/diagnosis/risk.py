@@ -61,11 +61,20 @@ WARNING_RISKS = {
     "想吐",
     "腹泻",
     "拉肚子",
+    "胸痛",
+    "胸口痛",
+    "胸口疼",
 }
 
 
-def detect_risks(text: Any) -> list[str]:
-    """检测文本中的危险信号"""
+def detect_risks(text: Any, negative_symptoms: list = None) -> list[str]:
+    """
+    检测文本中的危险信号
+
+    Args:
+        text: 用户输入文本
+        negative_symptoms: 否定症状列表（用于排除）
+    """
     if isinstance(text, list):
         text = str(text[0]) if text else ""
     elif not isinstance(text, str):
@@ -74,7 +83,34 @@ def detect_risks(text: Any) -> list[str]:
     if not text:
         return []
 
-    text_lower = text.lower()
+    # 如果有否定症状，先移除否定部分，只保留肯定描述
+    if negative_symptoms:
+        text_to_check = text
+        for neg_word in [
+            "不",
+            "没有",
+            "没",
+            "不是",
+            "无",
+            "非",
+            "不会",
+            "未曾",
+            "从不",
+        ]:
+            if neg_word in text_to_check:
+                idx = text_to_check.find(neg_word)
+                text_to_check = text_to_check[:idx].strip()
+
+        # 移除"但/而且"等转折词后的内容
+        for conj in ["但", "但是", "而且", "不过", "只是"]:
+            if conj in text_to_check:
+                idx = text_to_check.find(conj)
+                text_to_check = text_to_check[:idx].strip()
+
+        text_lower = text_to_check.lower()
+    else:
+        text_lower = text.lower()
+
     detected = []
 
     for risk in CRITICAL_RISKS:
@@ -140,19 +176,22 @@ def generate_emergency_warning(emergency_rules: List[Dict]) -> str:
     return "\n".join(warnings)
 
 
-def check_risks_with_kg(symptoms: List[str], text: str = "") -> Dict[str, Any]:
+def check_risks_with_kg(
+    symptoms: List[str], text: str = "", negative_symptoms: List[str] = None
+) -> Dict[str, Any]:
     """
-    综合风险检查（本地字典 + 知识图谱）
+    使用知识图谱检查风险
 
     Args:
         symptoms: 识别的症状列表
         text: 原始文本（用于本地字典匹配）
+        negative_symptoms: 否定症状列表
 
     Returns:
         包含风险等级、信号、危急规则的字典
     """
-    # 1. 本地字典检测
-    local_risks = detect_risks(text) if text else []
+    # 1. 本地字典检测（排除否定症状）
+    local_risks = detect_risks(text, negative_symptoms) if text else []
     is_crit = is_critical(local_risks)
 
     # 2. 知识图谱危急规则检测
