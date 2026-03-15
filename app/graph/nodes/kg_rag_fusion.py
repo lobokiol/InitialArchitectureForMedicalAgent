@@ -234,9 +234,19 @@ def _calculate_fusion_confidence(
     rag_depts: Dict[str, float],
     kg_weight: float,
     rag_weight: float,
+    has_negation: bool = False,
+    negative_symptoms: List[str] = None,
 ) -> Dict[str, Any]:
     """
     计算综合置信度
+
+    Args:
+        kg_depts: KG 科室评分
+        rag_depts: RAG 科室评分
+        kg_weight: KG 权重
+        rag_weight: RAG 权重
+        has_negation: 是否有否定症状
+        negative_symptoms: 否定症状列表
     """
     # KG 置信度
     kg_conf = 0.0
@@ -254,30 +264,61 @@ def _calculate_fusion_confidence(
         coverage = min(len(rag_depts) / 3, 1.0)
         rag_conf = top_rag * 0.6 + coverage * 0.4
 
-    # 综合置信度
-    overall = kg_conf * kg_weight + rag_conf * rag_weight
+    # 否定症状惩罚
+    negation_penalty = 1.0
+    if has_negation and negative_symptoms:
+        # 否定症状越多，惩罚越重
+        neg_count = len(negative_symptoms)
+        # 1个否定症状：0.95, 2个：0.85, 3个及以上：0.75
+        if neg_count >= 3:
+            negation_penalty = 0.75
+        elif neg_count == 2:
+            negation_penalty = 0.85
+        else:
+            negation_penalty = 0.95
+
+    # 综合置信度（应用否定症状惩罚）
+    overall = (kg_conf * kg_weight + rag_conf * rag_weight) * negation_penalty
+
+    # 生成原因
+    reason = _get_confidence_reason(
+        kg_depts, rag_depts, has_negation, negative_symptoms
+    )
 
     return {
         "kg_confidence": round(kg_conf, 3),
         "rag_confidence": round(rag_conf, 3),
         "overall_confidence": round(overall, 3),
-        "reason": _get_confidence_reason(kg_depts, rag_depts),
+        "negation_penalty": negation_penalty,
+        "reason": reason,
     }
 
 
-def _get_confidence_reason(kg_depts: Dict, rag_depts: Dict) -> str:
-    """根据数据来源给出置信度原因"""
+def _get_confidence_reason(
+    kg_depts: Dict,
+    rag_depts: Dict,
+    has_negation: bool = False,
+    negative_symptoms: List = None,
+) -> str:
+    """根据数据来源和否定症状给出置信度原因"""
     kg_count = len(kg_depts)
     rag_count = len(rag_depts)
 
+    base_reason = ""
     if kg_count > 0 and rag_count > 0:
-        return "KG + RAG 综合"
+        base_reason = "KG + RAG 综合"
     elif kg_count > 0:
-        return "仅 KG 推理"
+        base_reason = "仅 KG 推理"
     elif rag_count > 0:
-        return "仅 RAG 检索"
+        base_reason = "仅 RAG 检索"
     else:
-        return "无数据"
+        base_reason = "无数据"
+
+    # 添加否定症状说明
+    if has_negation and negative_symptoms:
+        base_reason += f" (含{len(negative_symptoms)}个否定症状)"
+
+    return base_reason
 
 
 def diagnose_with_kg_rag(

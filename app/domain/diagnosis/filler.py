@@ -1,29 +1,155 @@
 """
 症状填充器 - 四层架构整合
 
-Layer 0: Neo4j CM3KG 匹配 (新增)
+Layer 0: Neo4j CM3KG 匹配 (新增，支持否定症状)
 Layer 1: 词典映射 (symptom_dict.py)
 Layer 2: LLM抽取 (llm_extractor.py)
 Layer 3: 结构化Slot (本文件)
 Layer 4: 知识图谱校验 (kg_validator.py)
 
 流程:
-    用户输入 → Neo4j匹配 → 词典匹配 → LLM提取 → 合并 → KG校验 → 最终Slots
+    用户输入 → 否定词检测 → Neo4j匹配 → 词典匹配 → LLM提取 → 合并 → KG校验 → 最终Slots
 """
 
-from typing import Optional, Any, Set
+import re
+from typing import Optional, Any, Set, List, Tuple
 from app.domain.diagnosis.slots import DiagnosisSlots
 from app.domain.diagnosis.symptom_dict import match_symptoms_from_text, get_symptom_dict
 
 
 USE_LLM_EXTRACTOR = True
 
+# 否定词列表
+NEGATIVE_WORDS = [
+    "不",
+    "没有",
+    "没",
+    "不是",
+    "无",
+    "非",
+    "未",
+    "不会出现",
+    "不会出现",
+    "不会",
+    "未曾",
+    "从未",
+    "无任何",
+    "没有任何",
+    "毫无",
+    "不存在",
+]
+
+# 否定模式（检测否定词+症状的组合）
+NEGATIVE_PATTERNS = [
+    r"(不|没有|没|不是|无|非|未|不会|未曾|从不)(.+?)(症状?|问题|感觉)?$",
+    r"(.+?)(没有|不含|不包括|排除)(.+?)$",
+]
+
+
+def detect_negative_symptoms(user_input: str) -> Tuple[List[str], List[str]]:
+    """
+    检测用户输入中的否定症状
+
+    Args:
+        user_input: 用户输入文本
+
+    Returns:
+        (肯定症状列表, 否定症状列表)
+    """
+    negative_symptoms = []
+    positive_text = user_input
+
+    # 定义否定词模式
+    negation_patterns = [
+        r"不\s*(发热|发烧|咳嗽|头痛|肚子疼|恶心|呕吐|腹泻|便秘|胸闷|气短|头晕|眼花)",
+        r"没\s*(有)?\s*(发热|发烧|咳嗽|头痛|肚子疼|恶心|呕吐|腹泻|便秘|胸闷|气短|头晕|眼花)",
+        r"(没有|不是|无)\s*(发热|发烧|咳嗽|头痛|肚子疼|恶心|呕吐|腹泻|便秘|胸闷|气短|头晕|眼花)",
+    ]
+
+    # 检测否定模式
+    for pattern in negation_patterns:
+        matches = re.finditer(pattern, user_input)
+        for match in matches:
+            # 提取否定症状
+            negated_symptom = match.group()
+            # 清理
+            negated_symptom = (
+                negated_symptom.replace("不", "")
+                .replace("没有", "")
+                .replace("不是", "")
+                .replace("无", "")
+                .replace("有", "")
+                .strip()
+            )
+            if negated_symptom and negated_symptom not in negative_symptoms:
+                negative_symptoms.append(negated_symptom)
+
+    # 移除否定部分，保留肯定部分
+    positive_text = user_input
+    for neg in [
+        "不发热",
+        "不发烧",
+        "不咳嗽",
+        "不头痛",
+        "不肚子疼",
+        "不恶心",
+        "不呕吐",
+        "没有发热",
+        "没有发烧",
+        "没有咳嗽",
+        "没有头痛",
+        "没有恶心",
+        "没有呕吐",
+        "不是发热",
+        "不是发烧",
+        "不是咳嗽",
+        "不是头痛",
+        "不是恶心",
+        "不是呕吐",
+    ]:
+        if neg in positive_text:
+            idx = positive_text.find(neg)
+            positive_text = positive_text[:idx].strip()
+
+    # 移除"但/而且"等转折词后的内容（可能包含否定）
+    for conj in ["但", "但是", "而且", "不过"]:
+        if conj in positive_text:
+            idx = positive_text.find(conj)
+            positive_text = positive_text[:idx].strip()
+
+    return [], negative_symptoms  # 肯定症状由后续匹配补充
+
+
+def _clean_symptom(text: str) -> str:
+    """清理症状文本"""
+    # 移除常见修饰词
+    removals = ["感觉", "有些", "有点", "稍微", "轻微", "有一点", "有一些"]
+    for r in removals:
+        text = text.replace(r, "")
+
+    return text.strip()
+
 
 def _layer0_neo4j_match(user_input: str) -> dict:
     """
-    Layer 0: Neo4j CM3KG 向量语义匹配
+    Layer 0: Neo4j CM3KG 向量语义匹配（支持否定症状）
     使用 embedding 向量语义对齐，将主诉映射至标准医学术语
+    自动区分肯定症状和否定症状
     """
+    # 先检测否定症状
+    _, negative_symptoms = detect_negative_symptoms(user_input)
+
+    # 移除否定部分，保留肯定部分进行匹配
+    positive_input = user_input
+    for neg_word in NEGATIVE_WORDS:
+        if neg_word in positive_input:
+            idx = positive_input.find(neg_word)
+            positive_input = positive_input[:idx].strip()
+
+    # 如果移除否定词后为空，用原始输入
+    if not positive_input:
+        positive_input = user_input
+
     try:
         from app.infra.neo4j_client import get_neo4j_client
 
@@ -32,20 +158,54 @@ def _layer0_neo4j_match(user_input: str) -> dict:
         if client and client._driver:
             # 向量语义搜索 (阈值 0.7 平衡精度和召回)
             vector_matches = client.semantic_match_symptoms(
-                user_input, top_k=5, threshold=0.7
+                positive_input, top_k=5, threshold=0.7
             )
 
             if vector_matches:
-                symptoms = [m.get("name") for m in vector_matches if m.get("name")]
+                # 过滤掉否定症状
+                filtered_matches = []
+                for m in vector_matches:
+                    symptom_name = m.get("name", "")
+                    # 排除与否定症状相似的症状
+                    is_negative = False
+                    for neg_sym in negative_symptoms:
+                        if neg_sym in symptom_name or symptom_name in neg_sym:
+                            is_negative = True
+                            break
+
+                    if not is_negative:
+                        filtered_matches.append(m)
+
+                # 同时记录否定症状
+                negative_matched = []
+                if negative_symptoms and client and client._driver:
+                    for neg_sym in negative_symptoms:
+                        neg_matches = client.semantic_match_symptoms(
+                            neg_sym, top_k=3, threshold=0.6
+                        )
+                        negative_matched.extend(neg_matches)
+
+                symptoms = [
+                    m.get("name") for m in filtered_matches[:3] if m.get("name")
+                ]
+
                 return {
-                    "symptoms": symptoms[:3],
-                    "sources": {s["name"]: "semantic" for s in vector_matches[:3]},
-                    "raw_matches": vector_matches[:3],
+                    "symptoms": symptoms,
+                    "negative_symptoms": [m.get("name") for m in negative_matched[:3]],
+                    "sources": {s["name"]: "semantic" for s in filtered_matches[:3]},
+                    "raw_matches": filtered_matches[:3],
+                    "has_negation": len(negative_symptoms) > 0,
                 }
     except Exception as e:
         print(f"Layer 0 (Neo4j语义匹配) 失败: {e}")
 
-    return {"symptoms": [], "sources": {}, "raw_matches": []}
+    return {
+        "symptoms": [],
+        "negative_symptoms": [],
+        "sources": {},
+        "raw_matches": [],
+        "has_negation": False,
+    }
 
 
 def fill_slots(
