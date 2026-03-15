@@ -1,0 +1,141 @@
+version: "3.8"
+
+services:
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile.mcp
+    container_name: hospital-mcp-server
+    ports:
+      - "8001:8001"
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password
+      - ES_URL=http://elasticsearch:9200
+      - MILVUS_URI=http://milvus:19530
+      - REDIS_URI=redis://redis:6379
+      - POSTGRES_URI=postgresql://postgres:postgres@postgres:5432/hospital
+    depends_on:
+      - neo4j
+      - elasticsearch
+      - milvus
+      - redis
+      - postgres
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  # 依赖服务
+  neo4j:
+    image: neo4j:5
+    container_name: hospital-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/password
+    volumes:
+      - neo4j-data:/data
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: hospital-elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  milvus:
+    image: milvusdb/milvus:v2.3.3
+    container_name: hospital-milvus
+    ports:
+      - "19530:19530"
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    volumes:
+      - milvus-data:/var/lib/milvus
+    depends_on:
+      - etcd
+      - minio
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: hospital-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd-data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: hospital-minio
+    environment:
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  redis:
+    image: redis/redis-stack:latest
+    container_name: hospital-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+  postgres:
+    image: postgres:15
+    container_name: hospital-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=hospital
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - hospital-network
+
+volumes:
+  neo4j-data:
+  es-data:
+  milvus-data:
+  etcd-data:
+  minio-data:
+  redis-data:
+  postgres-data:
+
+networks:
+  hospital-network:
+    driver: bridge

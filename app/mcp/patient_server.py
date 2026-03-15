@@ -368,4 +368,11 @@ def kg_rag_fusion(symptoms: List[str], user_query: str = "", top_k: int = 3) -> 
 
 
 if __name__ == "__main__":
-    mcp.run()
+    import sys
+
+    if "--sse" in sys.argv:
+        print("Starting MCP Server in SSE mode on port 8001")
+        mcp.run(transport="sse")
+    else:
+        # 默认使用 stdio 模式
+        mcp.run()

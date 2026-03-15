@@ -8,27 +8,44 @@ logging.basicConfig(level=logging.CRITICAL)
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
 from app.core.logging import logger
 
 
 class MCPClient:
     def __init__(
-        self, server_command: str = "python", server_args: Optional[list] = None
+        self,
+        use_sse: bool = False,
+        sse_url: str = "http://localhost:8001",
+        server_command: str = "python",
+        server_args: Optional[list] = None,
     ):
-        if server_args is None:
-            server_args = ["-m", "app.mcp.patient_server"]
-        self.server_params = StdioServerParameters(
-            command=server_command,
-            args=server_args,
-        )
+        self.use_sse = use_sse
+        self.sse_url = sse_url
+
+        if not use_sse:
+            if server_args is None:
+                server_args = ["-m", "app.mcp.patient_server"]
+            self.server_params = StdioServerParameters(
+                command=server_command,
+                args=server_args,
+            )
         self._session: Optional[ClientSession] = None
 
     @asynccontextmanager
     async def _get_session(self):
-        async with stdio_client(self.server_params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                yield session
+        if self.use_sse:
+            # SSE 模式：连接远程 MCP Server
+            async with sse_client(self.sse_url) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    yield session
+        else:
+            # stdio 模式：fork 子进程
+            async with stdio_client(self.server_params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    yield session
 
     def call_tool(self, tool_name: str, arguments: dict) -> str:
         async def _call():

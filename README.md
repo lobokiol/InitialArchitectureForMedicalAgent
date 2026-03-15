@@ -185,6 +185,57 @@ flowchart TB
 
 
 
+<<<<<<< Updated upstream
+=======
+hospital_guidance_agent/
+├── app/                        # 主应用代码
+│   ├── main.py                 # FastAPI 入口
+│   ├── api/                    # API 路由
+│   │   └── routers/
+│   │       ├── chat.py         # /chat 对话接口
+│   │       ├── threads.py      # 会话管理
+│   │       └── users.py        # 用户管理
+│   ├── core/                  # 核心配置
+│   │   ├── config.py           # 环境变量配置
+│   │   ├── llm.py             # LLM/Embedding 封装
+│   │   └── logging.py          # 日志配置
+│   ├── domain/                 # 领域模型
+│   │   ├── models.py           # AppState、IntentResult
+│   │   └── diagnosis/           # 问诊系统
+│   │       ├── slots.py        # 槽位定义
+│   │       ├── filler.py       # 槽位填充 (向量语义匹配)
+│   │       ├── risk.py         # 危险信号检测
+│   │       └── questions.py    # 追问模板
+│   ├── graph/                  # LangGraph 对话流
+│   │   ├── builder.py          # 状态机构建
+│   │   └── nodes/              # 节点实现
+│   │       ├── decision.py     # 意图识别
+│   │       ├── diagnosis.py    # 诊断推理 (KG+RAG)
+│   │       ├── kg_rag_fusion.py # 综合推理模块
+│   │       ├── question_gen.py # 追问生成
+│   │       └── answer.py       # 答案生成
+│   ├── infra/                  # 基础设施
+│   │   ├── neo4j_client.py    # Neo4j (CM3KG 知识图谱)
+│   │   ├── milvus_client.py   # Milvus (向量检索)
+│   │   ├── es_client.py       # Elasticsearch
+│   │   ├── redis_client.py    # Redis (会话存储)
+│   │   └── postgres_client.py  # PostgreSQL (患者数据)
+│   ├── mcp/                    # MCP 工具调度
+│   │   ├── patient_server.py   # MCP Server 定义
+│   │   └── client.py          # MCP Client 调用
+│   └── tools/                  # 工具函数
+│       └── knowledge_graph_tool.py
+├── data/                       # 知识数据
+│   └── knowledge_graph/
+│       └── cm3kg/             # 医学知识图谱数据
+├── demo/                       # 示例脚本
+│   ├── es.py                  # ES 数据导入
+│   ├── milvus.py              # Milvus 数据导入
+│   └── ...
+├── cli.py                      # 命令行前端
+└── README.md
+
+>>>>>>> Stashed changes
 
 ## 环境配置
 
@@ -217,7 +268,11 @@ NEO4J_PASSWORD=password
 ### 快速启动
 
 ```bash
-# 1. 启动所有基础设施
+# 1. 启动所有基础设施（推荐使用 Docker Compose）
+cd demo
+docker-compose -f mcp_docker-compose.yaml up -d
+
+# 或手动启动各服务
 docker run -d --name redis -p 6379:6379 redis
 docker run -d --name elasticsearch -p 9200:9200 -e discovery.type=single-node elasticsearch
 docker run -d --name milvus -p 19530:19530 milvusdb/milvus
@@ -230,10 +285,13 @@ pip install -r requirements.txt
 # 3. 导入数据
 cd data/knowledge_graph && python import_cm3kg.py  # 知识图谱
 
-# 4. 启动服务
+# 4. 启动 MCP Server（SSE 模式，端口 8001）
+python -m app.mcp.patient_server --sse &
+
+# 5. 启动主服务
 uvicorn app.main:app --reload
 
-# 5. 运行 CLI
+# 6. 运行 CLI
 python cli.py
 ```
 
@@ -241,7 +299,7 @@ python cli.py
 
 ## MCP 工具
 
-所有数据源通过 MCP Server 统一调度：
+所有数据源通过 MCP Server 统一调度（SSE 模式）：
 
 | 数据源 | MCP 工具 | 功能 |
 |--------|---------|------|
@@ -252,6 +310,30 @@ python cli.py
 | **ES** | `es_search` | 指南文档检索 |
 | **PostgreSQL** | `pg_get_patient_*` | 患者画像查询 |
 | **综合** | `kg_rag_fusion` | KG+RAG 融合推理 |
+
+### MCP Server 启动
+
+```bash
+# SSE 模式（长期运行，推荐）
+python -m app.mcp.patient_server --sse
+
+# Docker Compose（推荐）
+cd demo && docker-compose -f mcp_docker-compose.yaml up -d
+```
+
+### MCP Client 使用
+
+```python
+from app.mcp.client import MCPClient
+
+# SSE 模式（连接远程 Server）
+client = MCPClient(use_sse=True, sse_url="http://localhost:8001")
+result = client.call_tool("kg_rag_fusion", {"symptoms": ["头痛"], "top_k": 3})
+
+# stdio 模式（自动 fork 子进程）
+client = MCPClient(use_sse=False)
+result = client.call_tool("kg_rag_fusion", {"symptoms": ["头痛"], "top_k": 3})
+```
 
 ---
 
