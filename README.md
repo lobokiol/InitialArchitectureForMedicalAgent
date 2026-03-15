@@ -94,34 +94,94 @@ web页面：
   "risk_signals": []
 }
 ```
-
 ---
-## 三、LangGraph 节点流
 
-核心对话工作流由 `app/graph` + `app/domain` + `app/services` 实现，以 LangGraph 状态机为中心：
+## 三、系统架构流程
+
+核心对话工作流采用五层架构设计，以 MCP 为数据调度中心：
 
 ```mermaid
-flowchart TD
-START([START])
-TRIM[trim_history<br/>裁剪历史]
-DECISION[decision<br/>意图识别]
-DIAGNOSIS[diagnosis<br/>多轮问诊]
-TOOL[tool_calling<br/>工具调用/病例查询]
-ES_RAG[es_rag<br/>流程文档检索]
-MILVUS_RAG[milvus_rag<br/>症状向量检索]
-CHECK[check_docs<br/>文档评估]
-REWRITE[rewrite_question<br/>Query 重写]
-ANSWER[answer_generate<br/>答案生成]
-EMERGENCY[emergency<br/>紧急干预]
-HIL[Human-in-the-loop<br/>人工介入]
-END([END])
+flowchart TB
+    subgraph Input_Layer["1. 输入层"]
+        A1["用户文字主诉"]
+    end
+    
+    subgraph Perception_Layer["2. 感知层: 语义识别"]
+        B1["LLM 症状实体提取"]
+        B2["KG 语义对齐: 主诉→标准术语"]
+    end
+    
+    subgraph MCP_Hub["MCP 数据调度中心"]
+        MCP["<b>MCP Server</b>"]
+        M1["CM3KG 医疗知识库"]
+        M2["人物画像数据库"]
+        M3["RAG 临床指南与病例库"]
+    end
+    
+    subgraph Reasoning_Layer["3. 推理层: 知识驱动决策"]
+        C["上下文融合"]
+        D["推理引擎"]
+        D1["KG 路径推理"]
+        D2["RAG 语义检索"]
+        E["置信度综合评估"]
+    end
+    
+    subgraph Dialogue_Layer["4. 交互层: 动态问诊"]
+        F["动态追问生成"]
+        G["分诊决策生成"]
+    end
+    
+    subgraph Output_Layer["5. 输出层"]
+        H1["分诊建议卡片"]
+        H2["病情预查小结"]
+    end
+    
+    A1 --> B1
+    B1 --> B2
+    MCP <--> M1 & M2 & M3
+    B2 --> C
+    C <--> MCP
+    C --> D
+    D --> D1 & D2
+    D1 --> E
+    D2 --> E
+    E -- "置信度 < 0.8" --> F
+    F --> B1
+    E -- "置信度 >= 0.8" --> G
+    G --> H1 & H2
+    B2 -.-> MCP
+```
 
-START --> TRIM
-TRIM --> DECISION
+### 各层说明
 
-DECISION -- 闲聊/非医学 --> ANSWER
-DECISION -- 看病/症状 --> DIAGNOSIS
-DECISION -- 办事/导航 --> ES_RAG
+| 层级 | 组件 | 功能 |
+|------|------|------|
+| **输入层** | 用户主诉 | 接收用户文字输入 |
+| **感知层** | LLM 实体提取 | 提取症状/时长/程度等实体 |
+| | KG 语义对齐 | 将口语映射至标准医学术语 |
+| **MCP 调度层** | MCP Server | 统一调度各数据源 |
+| | Neo4j (CM3KG) | 症状-疾病-科室知识图谱 |
+| | PostgreSQL | 患者画像/历史记录 |
+| | ES + Milvus | 临床指南/病例库 RAG |
+| **推理层** | 上下文融合 | 整合多源信息 |
+| | KG 推理 | 症状→疑似疾病→建议科室 |
+| | RAG 检索 | 相似病例语义匹配 |
+| | 置信度评估 | 综合评分 (KG 0.6 + RAG 0.4) |
+| **交互层** | 动态追问 | 置信度不足时补充提问 |
+| | 分诊决策 | 生成最终科室推荐 |
+| **输出层** | 分诊卡片 | 科室/风险/建议 |
+| | 病情小结 | 结合画像的主诉总结 |
+
+### LangGraph 节点映射
+
+| 架构层 | LangGraph 节点 |
+|--------|---------------|
+| 输入层 | `trim_history` |
+| 感知层 | `decision` → `slot_fill` |
+| MCP 调度 | MCP Server (patient_server.py) |
+| 推理层 | `diagnosis` → `kg_rag_fusion` |
+| 交互层 | `question_gen` / `completion` |
+| 输出层 | `answer_generate` |
 
 DIAGNOSIS -- 进行中 --> END
 DIAGNOSIS -- emergency --> EMERGENCY
