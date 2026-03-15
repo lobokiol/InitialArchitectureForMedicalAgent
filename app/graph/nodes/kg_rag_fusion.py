@@ -13,7 +13,7 @@ from app.core.logging import logger
 
 def kg_rag_fusion(
     symptoms: List[str],
-    kg_result: Dict[str, Any],
+    kg_result: Optional[Dict[str, Any]],
     rag_docs: List[Any],
     user_query: str = "",
     kg_weight: float = 0.6,
@@ -184,6 +184,8 @@ def _extract_depts_from_rag(rag_docs: List[Any]) -> Dict[str, float]:
 
     dept_counts = {}
     disease_to_dept = {}
+    neo4j_client = None
+    neo4j_available = False
 
     try:
         from app.infra.neo4j_client import get_neo4j_client
@@ -191,7 +193,7 @@ def _extract_depts_from_rag(rag_docs: List[Any]) -> Dict[str, float]:
         neo4j_client = get_neo4j_client()
         neo4j_available = True
     except Exception:
-        neo4j_available = False
+        pass
 
     for doc in rag_docs:
         content = ""
@@ -284,7 +286,7 @@ def diagnose_with_kg_rag(
     top_k: int = 3,
 ) -> Dict[str, Any]:
     """
-    完整的 KG + RAG 诊断流程
+    完整的 KG + RAG 诊断流程（并行执行）
 
     Args:
         symptoms: 症状列表
@@ -294,41 +296,59 @@ def diagnose_with_kg_rag(
     Returns:
         综合诊断结果
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     from app.infra.neo4j_client import get_neo4j_client
     from app.graph.nodes.milvus_rag import rrf_fusion, rerank_with_qwen
     from app.infra.milvus_client import search_medical_docs
     from app.infra.es_client import search_rag_es
     from app.core import config
 
-    # 1. KG 推理
     kg_result = None
-    try:
-        client = get_neo4j_client()
-        if client:
-            kg_result = client.infer_department(symptoms, top_k=top_k)
-            logger.info(f"KG 推理完成: {kg_result.get('departments', [])[:3]}")
-    except Exception as e:
-        logger.warning(f"KG 推理失败: {e}")
-
-    # 2. RAG 检索 (简化版)
     rag_docs = []
-    if user_query:
+
+    def run_kg():
         try:
-            # 双路检索
+            client = get_neo4j_client()
+            if client:
+                return client.infer_department(symptoms, top_k=top_k)
+        except Exception as e:
+            logger.warning(f"KG 推理失败: {e}")
+        return None
+
+    def run_rag():
+        try:
+            if not user_query:
+                return []
             es_docs = search_rag_es(user_query, size=config.RETRIEVAL_K)
             milvus_docs = search_medical_docs(user_query)
-
-            # RRF 融合
             fused = rrf_fusion(es_docs, milvus_docs, k=config.RRF_K)
-
-            # 精排
-            rag_docs = rerank_with_qwen(user_query, fused, top_n=config.RERANK_TOP_N)
-
-            logger.info(f"RAG 检索完成: {len(rag_docs)} 条")
+            return rerank_with_qwen(user_query, fused, top_n=config.RERANK_TOP_N)
         except Exception as e:
             logger.warning(f"RAG 检索失败: {e}")
+            return []
 
-    # 3. 综合评分
+    # 并行执行 KG 和 RAG
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        kg_future = executor.submit(run_kg)
+        rag_future = executor.submit(run_rag)
+
+        try:
+            kg_result = kg_future.result(timeout=10)
+            logger.info(
+                f"KG 推理完成: {kg_result.get('departments', [])[:3] if kg_result else []}"
+            )
+        except Exception as e:
+            logger.warning(f"KG 任务异常: {e}")
+            kg_result = None
+
+        try:
+            rag_docs = rag_future.result(timeout=10)
+            logger.info(f"RAG 检索完成: {len(rag_docs)} 条")
+        except Exception as e:
+            logger.warning(f"RAG 任务异常: {e}")
+            rag_docs = []
+
+    # 融合评分（带容错）
     fusion_result = kg_rag_fusion(
         symptoms=symptoms,
         kg_result=kg_result,
@@ -337,5 +357,13 @@ def diagnose_with_kg_rag(
         kg_weight=0.6,
         rag_weight=0.4,
     )
+
+    # 兜底处理：两者都为空
+    if not fusion_result.get("departments"):
+        fusion_result["fallback"] = True
+        fusion_result["fallback_message"] = (
+            "无法确定科室，建议您到医院预检台咨询或线下就医"
+        )
+        logger.warning("KG+RAG 均无结果，返回兜底提示")
 
     return fusion_result
