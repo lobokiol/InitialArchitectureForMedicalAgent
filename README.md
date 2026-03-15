@@ -185,7 +185,7 @@ flowchart TB
 
 ## 项目结构
 
-```
+
 hospital_guidance_agent/
 ├── app/                        # 主应用代码
 │   ├── main.py                 # FastAPI 入口
@@ -233,7 +233,7 @@ hospital_guidance_agent/
 │   └── ...
 ├── cli.py                      # 命令行前端
 └── README.md
-```
+
 
 ## 环境配置
 
