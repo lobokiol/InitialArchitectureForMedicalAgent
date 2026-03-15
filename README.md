@@ -185,57 +185,7 @@ flowchart TB
 
 
 
-<<<<<<< Updated upstream
-=======
-hospital_guidance_agent/
-├── app/                        # 主应用代码
-│   ├── main.py                 # FastAPI 入口
-│   ├── api/                    # API 路由
-│   │   └── routers/
-│   │       ├── chat.py         # /chat 对话接口
-│   │       ├── threads.py      # 会话管理
-│   │       └── users.py        # 用户管理
-│   ├── core/                  # 核心配置
-│   │   ├── config.py           # 环境变量配置
-│   │   ├── llm.py             # LLM/Embedding 封装
-│   │   └── logging.py          # 日志配置
-│   ├── domain/                 # 领域模型
-│   │   ├── models.py           # AppState、IntentResult
-│   │   └── diagnosis/           # 问诊系统
-│   │       ├── slots.py        # 槽位定义
-│   │       ├── filler.py       # 槽位填充 (向量语义匹配)
-│   │       ├── risk.py         # 危险信号检测
-│   │       └── questions.py    # 追问模板
-│   ├── graph/                  # LangGraph 对话流
-│   │   ├── builder.py          # 状态机构建
-│   │   └── nodes/              # 节点实现
-│   │       ├── decision.py     # 意图识别
-│   │       ├── diagnosis.py    # 诊断推理 (KG+RAG)
-│   │       ├── kg_rag_fusion.py # 综合推理模块
-│   │       ├── question_gen.py # 追问生成
-│   │       └── answer.py       # 答案生成
-│   ├── infra/                  # 基础设施
-│   │   ├── neo4j_client.py    # Neo4j (CM3KG 知识图谱)
-│   │   ├── milvus_client.py   # Milvus (向量检索)
-│   │   ├── es_client.py       # Elasticsearch
-│   │   ├── redis_client.py    # Redis (会话存储)
-│   │   └── postgres_client.py  # PostgreSQL (患者数据)
-│   ├── mcp/                    # MCP 工具调度
-│   │   ├── patient_server.py   # MCP Server 定义
-│   │   └── client.py          # MCP Client 调用
-│   └── tools/                  # 工具函数
-│       └── knowledge_graph_tool.py
-├── data/                       # 知识数据
-│   └── knowledge_graph/
-│       └── cm3kg/             # 医学知识图谱数据
-├── demo/                       # 示例脚本
-│   ├── es.py                  # ES 数据导入
-│   ├── milvus.py              # Milvus 数据导入
-│   └── ...
-├── cli.py                      # 命令行前端
-└── README.md
 
->>>>>>> Stashed changes
 
 ## 环境配置
 
