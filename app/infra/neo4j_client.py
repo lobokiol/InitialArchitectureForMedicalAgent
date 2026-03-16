@@ -633,7 +633,7 @@ class Neo4jClient:
                 },
             }
 
-        # 2. 合并概率 (加权投票)
+        # 2. 路径1: 直接症状→科室 (单跳)
         dept_scores = {}
         for sp in symptom_probs:
             top_dept = sp.get("top_department")
@@ -641,8 +641,34 @@ class Neo4jClient:
             if top_dept:
                 dept_scores[top_dept] = dept_scores.get(top_dept, 0) + top_prob
 
-        # 3. 排序并返回 Top-K
-        sorted_depts = sorted(dept_scores.items(), key=lambda x: -x[1])
+        # 3. 路径2: 症状→疾病→科室 (两跳推理)
+        disease_depts = self.get_diseases_by_symptoms(normalized_symptoms, limit=10)
+        disease_dept_scores = {}
+        for item in disease_depts:
+            dept = item.get("department")
+            symptom_match = item.get("symptom_match", 1)
+            if dept:
+                disease_dept_scores[dept] = (
+                    disease_dept_scores.get(dept, 0) + symptom_match
+                )
+
+        if disease_dept_scores:
+            max_disease_score = max(disease_dept_scores.values())
+            disease_dept_scores = {
+                dept: score / max_disease_score
+                for dept, score in disease_dept_scores.items()
+            }
+
+        # 4. 融合两条路径 (单跳权重 0.6, 两跳权重 0.4)
+        all_depts = set(dept_scores.keys()) | set(disease_dept_scores.keys())
+        fused_scores = {}
+        for dept in all_depts:
+            direct_score = dept_scores.get(dept, 0)
+            disease_score = disease_dept_scores.get(dept, 0)
+            fused_scores[dept] = direct_score * 0.6 + disease_score * 0.4
+
+        # 5. 排序并返回 Top-K (使用融合后的分数)
+        sorted_depts = sorted(fused_scores.items(), key=lambda x: -x[1])
         total_score = sum(s for _, s in sorted_depts)
 
         departments = [
@@ -650,11 +676,13 @@ class Neo4jClient:
                 "name": dept,
                 "score": round(score, 3),
                 "probability": round(score / total_score, 3) if total_score > 0 else 0,
+                "direct_score": round(dept_scores.get(dept, 0), 3),
+                "disease_score": round(disease_dept_scores.get(dept, 0), 3),
             }
             for dept, score in sorted_depts[:top_k]
         ]
 
-        # 4. 计算置信度
+        # 6. 计算置信度
         confidence = self.calculate_confidence(symptom_probs, len(symptoms))
 
         return {
@@ -662,6 +690,12 @@ class Neo4jClient:
             "confidence": confidence,
             "symptoms_used": len(symptom_probs),
             "all_symptoms": symptoms,
+            "disease_reasoning": disease_depts[:5],
+            "reasoning_paths": {
+                "direct": dept_scores,
+                "disease": disease_dept_scores,
+                "fused": fused_scores,
+            },
         }
 
     def get_diseases_by_symptoms(
