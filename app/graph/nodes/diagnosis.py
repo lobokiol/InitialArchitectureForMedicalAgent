@@ -1,5 +1,9 @@
+import logging
+
 from app.domain.models import AppState
 from app.domain.diagnosis.slots import DiagnosisSlots
+
+logger = logging.getLogger(__name__)
 from app.domain.diagnosis.risk import (
     is_critical as check_is_critical,
     check_risks_with_kg,
