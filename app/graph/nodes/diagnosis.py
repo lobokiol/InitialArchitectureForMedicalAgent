@@ -192,10 +192,18 @@ def diagnosis_node(state: AppState) -> dict:
             confidence_result = {"overall_confidence": 0}
             overall_conf = 0
             sources_info = {}
+            fusion_result = None
 
         # 保存推理结果到状态
         state.department_inference = fusion_result
         state.confidence = confidence_result
+
+        # 保存 RAG 检索结果到 state.medical_docs（供 answer_generate 使用）
+        if fusion_result and fusion_result.get("rag_docs"):
+            state.medical_docs = fusion_result["rag_docs"]
+        elif fusion_result is None:
+            # 确保即使 fusion_result 为空也初始化为空列表
+            state.medical_docs = []
 
         # 置信度 >= 0.65 → 直接输出分诊建议
         if overall_conf >= CONFIDENT_THRESHOLD:

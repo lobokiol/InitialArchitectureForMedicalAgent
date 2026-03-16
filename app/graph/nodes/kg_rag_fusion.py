@@ -87,6 +87,7 @@ def kg_rag_fusion(
         },
         "kg_depts": kg_depts,
         "rag_depts": rag_depts,
+        "rag_docs": rag_docs,  # 返回 RAG 检索结果，供 answer_generate 使用
     }
 
 
