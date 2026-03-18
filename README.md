@@ -213,6 +213,18 @@ POSTGRES_URI=postgresql://postgres:postgres@localhost:5432/hospital
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=password
+
+# 认证配置（微信登录 + JWT）
+# 获取方式：微信公众平台/小程序后台 -> 开发管理 -> 开发设置
+WECHAT_APP_ID=your_wechat_app_id
+WECHAT_APP_SECRET=your_wechat_app_secret
+
+# 生成方式：openssl rand -hex 32
+JWT_SECRET_KEY=your-jwt-secret-key
+
+# Token 过期时间（可选）
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+REFRESH_TOKEN_EXPIRE_DAYS=7
 ```
 
 ### 快速启动
@@ -314,6 +326,40 @@ python cli.py
 ## API 简要说明
 
 仅列出核心接口，详细字段可通过代码或自动文档（FastAPI Swagger）查看。
+
+### 认证接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/v1/auth/wechat/login` | POST | 微信小程序登录 |
+| `/api/v1/auth/login` | POST | 手机号登录 |
+| `/api/v1/auth/register` | POST | 用户注册 |
+| `/api/v1/auth/refresh` | POST | 刷新 Access Token |
+| `/api/v1/auth/me` | GET | 获取当前用户信息 |
+| `/api/v1/auth/logout` | POST | 退出登录 |
+
+#### 微信登录流程
+
+```python
+# 前端: wx.login() 获取 code
+# 调用后端登录接口
+POST /api/v1/auth/wechat/login
+{ "code": "wx_code_from_login" }
+
+# 响应
+{
+  "access_token": "eyJhbG...",
+  "refresh_token": "eyJhbG...",
+  "expires_in": 3600,
+  "user": { "user_id": "wx_xxx", "nickname": "..." },
+  "is_new_user": false
+}
+
+# 后续请求携带 Token
+Authorization: Bearer <access_token>
+```
+
+### 聊天接口
 
 - `POST /chat`
   - 请求体：`{ user_id: string, thread_id?: string, message: string, password_verified?: boolean }`
