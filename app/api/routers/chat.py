@@ -2,16 +2,17 @@ from typing import Optional, List, AsyncGenerator
 
 import asyncio
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.domain.models import IntentResult, RetrievedDoc
+from app.domain.models import IntentResult, RetrievedDoc, User
+from app.middleware.auth import get_current_user_optional
 from app.services import chat_service
 
 
 class ChatRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     thread_id: Optional[str] = None
     message: str
     password_verified: bool = True
@@ -97,13 +98,17 @@ async def verify_password(body: VerifyPasswordRequest):
 
 
 @router.post("", response_model=ChatResponse)
-async def chat_endpoint(body: ChatRequest):
-    # Run sync chat_once in thread to avoid blocking event loop
+async def chat_endpoint(
+    body: ChatRequest, current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    user_id: str = body.user_id or (
+        current_user.user_id if current_user else "anonymous"
+    )
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
         None,
         chat_service.chat_once,
-        body.user_id,
+        user_id,
         body.thread_id,
         body.message,
         body.password_verified,
@@ -112,27 +117,28 @@ async def chat_endpoint(body: ChatRequest):
 
 
 @router.post("/stream")
-async def chat_stream_endpoint(body: ChatRequest):
+async def chat_stream_endpoint(
+    body: ChatRequest, current_user: Optional[User] = Depends(get_current_user_optional)
+):
     """流式输出接口 - Server-Sent Events"""
+    user_id: str = body.user_id or (
+        current_user.user_id if current_user else "anonymous"
+    )
 
     async def event_generator() -> AsyncGenerator[str, None]:
         """生成 SSE 格式的事件流"""
         try:
-            # 调用流式服务
             async for chunk in chat_service.chat_stream(
-                body.user_id,
+                user_id,
                 body.thread_id,
                 body.message,
                 body.password_verified,
             ):
-                # 每个 chunk 是一个字典，包含 token 或其他信息
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
 
-            # 发送结束标记
             yield "data: [DONE]\n\n"
 
         except Exception as e:
-            # 发送错误信息
             error_chunk = {"error": str(e), "type": "error"}
             yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
@@ -143,6 +149,6 @@ async def chat_stream_endpoint(body: ChatRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲
+            "X-Accel-Buffering": "no",
         },
     )

@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routers import chat, threads
 from app.api.routers import users
+from app.api.routers import auth
+from app.middleware.auth import AuthMiddleware
 from app.core.logging import logger  # ensure logging configured
 
 
@@ -17,6 +19,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    app.add_middleware(AuthMiddleware)
+
+    app.include_router(auth.router)
     app.include_router(chat.router)
     app.include_router(threads.router)
     app.include_router(users.router)

@@ -175,6 +175,57 @@ class AppState(BaseModel):
         return None
 
 
+class User(BaseModel):
+    """用户模型"""
+
+    user_id: str = ""
+    openid: Optional[str] = None
+    phone: Optional[str] = None
+    nickname: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: Literal["patient", "doctor", "admin"] = "patient"
+    gender: Optional[Literal["male", "female", "unknown"]] = "unknown"
+    age: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    last_login_at: Optional[str] = None
+    is_active: bool = True
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class UserLoginRequest(BaseModel):
+    """用户登录请求"""
+
+    code: Optional[str] = None  # WeChat code
+    phone: Optional[str] = None  # Phone number login
+    password: Optional[str] = None  # Password login (for admin)
+
+
+class UserLoginResponse(BaseModel):
+    """用户登录响应"""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "Bearer"
+    expires_in: int
+    user: User
+
+
+class TokenRefreshRequest(BaseModel):
+    """Token刷新请求"""
+
+    refresh_token: str
+
+
+class TokenRefreshResponse(BaseModel):
+    """Token刷新响应"""
+
+    access_token: str
+    token_type: str = "Bearer"
+    expires_in: int
+
+
 # Shared constants
 MAX_REWRITE: int = config.MAX_REWRITE
 MAX_HISTORY_MSGS: int = config.MAX_HISTORY_MSGS
