@@ -98,90 +98,110 @@ web页面：
 
 ## 三、系统架构流程
 
-核心对话工作流采用 **五层架构** 设计，以 MCP 为数据调度中心：
+核心对话工作流采用 **八步流水线** 设计，以 MCP 为数据调度中心：
 
 ```mermaid
-flowchart TB
-    subgraph Input_Layer["1. 输入层"]
-        A1["用户文字主诉"]
-    end
+graph TD
+    %% 1. 输入预处理
+    Start((用户输入)) --> Step1["<b>1. 历史裁剪 (trim_history)</b>"]
+    Step1 --> Step2["<b>2. 文本预处理 (preprocess)</b>"]
     
-    subgraph Perception_Layer["2. 感知层: 语义识别"]
-        B1["LLM 症状实体提取"]
-        B2["KG 语义对齐: 主诉→标准术语"]
-    end
+    %% 2. 语义解析层
+    Step2 --> Step3["<b>3. Neo4j 症状提取 (Layer 0-1)</b><br/>初步提取实体作为意图特征"]
+    Step3 --> Step4{"<b>4. 核心意图路由 (Decision Node)</b><br/>LoRA 强化分类模型"}
+
+    %% 3. 非导诊分支 (快速路径)
+    Step4 -- "闲聊 / 拒答" --> ExitNode["<b>结束节点 (Exit)</b><br/>礼貌回复并直接终止"]
+    ExitNode --> End((结束))
+
+    Step4 -- "触发危急值" --> Emergency["<b>急诊红色通道</b><br/>人工介入 / 紧急告警"]
+    Emergency --> End
+
+    Step4 -- "办事指南 / 流程咨询" --> Step_ES["<b>ES 指南搜索 (MCP)</b><br/>检索医院手册/政策/流程"]
+    Step_ES --> Step9
+
+    %% 4. 导诊分支 (深度路径)
+    Step4 -- "看病导诊" --> Step5["<b>5. 槽位填充 (Slot Table)</b>"]
+    Step5 --> Step6{"<b>6. 槽位完整性检查</b>"}
     
-    subgraph MCP_Hub["MCP 数据调度中心"]
-        MCP["<b>MCP Server</b>"]
-        M1["CM3KG 医疗知识库"]
-        M2["人物画像数据库"]
-        M3["RAG 临床指南与病例库"]
-    end
+    Step6 -- "信息不足" --> Clarify["<b>动态追问 (Clarify)</b>"]
+    Clarify --> Step4
     
-    subgraph Reasoning_Layer["3. 推理层: 知识驱动决策"]
-        C["上下文融合"]
-        D["推理引擎"]
-        D1["KG 路径推理"]
-        D2["RAG 语义检索"]
-        E["置信度综合评估"]
-    end
+    Step6 -- "满足检索" --> Step7["<b>7. 混合检索模块 (MCP)</b><br/>Neo4j 推理 + Milvus 向量"]
     
-    subgraph Dialogue_Layer["4. 交互层: 动态问诊"]
-        F["动态追问生成"]
-        G["分诊决策生成"]
-    end
+    %% 5. 质量校验与输出
+    Step7 --> Step8{"<b>8. 答案生产检查</b>"}
     
-    subgraph Output_Layer["5. 输出层"]
-        H1["分诊建议卡片"]
-        H2["病情预查小结"]
-    end
+    Step8 -- "相关性低" --> Rewrite["<b>Query Rewrite</b>"]
+    Rewrite --> Step7
     
-    A1 --> B1
-    B1 --> B2
-    MCP <--> M1 & M2 & M3
-    B2 --> C
-    C <--> MCP
-    C --> D
-    D --> D1 & D2
-    D1 --> E
-    D2 --> E
-    E -- "置信度 < 0.8" --> F
-    F --> B1
-    E -- "置信度 >= 0.8" --> G
-    G --> H1 & H2
-    B2 -.-> MCP
+    Step8 -- "校验通过" --> Step9["<b>9. 答案合成输出</b><br/>整合指南信息 / 导诊建议"]
+    Step9 --> End
+
+    %% MCP 协议中枢
+    subgraph MCP_Infrastructure [MCP Protocol Layer]
+        MCP_Server{<b>MCP Server / Router</b>}
+        T_Neo4j[(Neo4j Tool<br/>症状映射)]
+        T_ES[(ES Tool<br/>指南/规章搜索)]
+        T_Milvus[(Milvus Tool<br/>医学知识检索)]
+        T_HIS[HIS API<br/>挂号卡片]
+    end
+
+    %% MCP 调用链路
+    Step3 <==> MCP_Server
+    Step_ES <==> MCP_Server
+    Step7 <==> MCP_Server
+    Step9 <==> MCP_Server
+
+    MCP_Server --- T_Neo4j
+    MCP_Server --- T_ES
+    MCP_Server --- T_Milvus
+    MCP_Server --- T_HIS
+
+    %% 样式美化
+    style Step4 fill:#f96,stroke:#333,stroke-width:2px
+    style ExitNode fill:#ddd,stroke:#999
+    style Step_ES fill:#fff9c4,stroke:#fbc02d
+    style Emergency fill:#f66,stroke:#fff,color:#fff
+    style MCP_Server fill:#f1f,stroke:#fff,color:#fff
 ```
 
-### 各层说明
+### 各步骤说明
 
-| 层级 | 组件 | 功能 |
+| 步骤 | 节点 | 功能 |
 |------|------|------|
-| **输入层** | 用户主诉 | 接收用户文字输入 |
-| **感知层** | LLM 实体提取 | 提取症状/时长/程度等实体 |
-| | KG 语义对齐 | 将口语映射至标准医学术语 (向量匹配) |
-| **MCP 调度层** | MCP Server | 统一调度各数据源 |
-| | Neo4j (CM3KG) | 症状-疾病-科室知识图谱 |
-| | PostgreSQL | 患者画像/历史记录 |
-| | ES + Milvus | 临床指南/病例库 RAG |
-| **推理层** | 上下文融合 | 整合多源信息 |
-| | KG 推理 | 症状→疑似疾病→建议科室 |
-| | RAG 检索 | 相似病例语义匹配 |
-| | 置信度评估 | 综合评分 (KG 0.6 + RAG 0.4) |
-| **交互层** | 动态追问 | 置信度不足时补充提问 |
-| | 分诊决策 | 生成最终科室推荐 |
-| **输出层** | 分诊卡片 | 科室/风险/建议 |
-| | 病情小结 | 结合画像的主诉总结 |
+| 1 | trim_history | 历史消息裁剪，控制上下文长度 |
+| 2 | preprocess | 文本标准化（繁→简、去噪声、同义标准化） |
+| 3 | Neo4j 症状提取 | Layer 0-1 快速匹配（向量+字典） |
+| 4 | Decision Node | **LoRA 强化**意图分类 + 安全护栏 |
+| 5 | Slot Table | 槽位填充（症状、部位、时长、严重程度等） |
+| 6 | 槽位检查 | 置信度 < 0.65 → 追问；≥ 0.65 → 检索 |
+| 7 | 混合检索 | Neo4j 推理 + Milvus 向量 + ES 流程 |
+| 8 | 答案检查 | 相关性低 → Rewrite；通过 → 输出 |
+| 9 | 答案输出 | 科室推荐卡片 + 导诊建议 |
 
 ### LangGraph 节点映射
 
-| 架构层 | LangGraph 节点 |
-|--------|---------------|
-| 输入层 | `trim_history` |
-| 感知层 | `decision` → `slot_fill` |
-| MCP 调度 | MCP Server (patient_server.py) |
-| 推理层 | `diagnosis` → `kg_rag_fusion` |
-| 交互层 | `question_gen` / `completion` |
-| 输出层 | `answer_generate` |
+| 步骤 | LangGraph 节点 |
+|------|---------------|
+| 1 | `trim_history` |
+| 2 | `preprocess` (新增) |
+| 3 | `diagnosis` (Layer 0-1) |
+| 4 | `decision` (LoRA 强化) |
+| 5 | `slot_fill` |
+| 6 | `completion` |
+| 7 | `kg_rag_fusion` + `milvus_rag` |
+| 8 | `check_docs` + `rewrite` |
+| 9 | `answer_generate` |
+
+### MCP 工具
+
+| 工具 | 数据源 | 功能 |
+|------|--------|------|
+| Neo4j Tool | CM3KG 知识图谱 | 症状映射、科室推理 |
+| ES Tool | 流程指南库 | 医院手册/政策搜索 |
+| Milvus Tool | 医学知识库 | 症状向量检索 |
+| HIS API | 医院信息系统 | 挂号卡片、医生排班 |
 
 
 
