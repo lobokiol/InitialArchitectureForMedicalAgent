@@ -130,7 +130,7 @@ class Neo4jClient:
         with self._driver.session() as session:
             result = session.run(
                 """
-                MATCH (d:Disease {name: $disease})-[r:治疗科室]->(dept:Department)
+                MATCH (d:Disease {name: $disease})-[r:就诊科室]->(dept:Department)
                 RETURN dept.name as name
             """,
                 disease=disease,
@@ -327,7 +327,7 @@ class Neo4jClient:
             # 查询相关疾病
             disease_result = session.run(
                 """
-                MATCH (d:Disease)-[:治疗科室]->(dept:Department)<-[:推荐科室]-(s:Symptom)
+                MATCH (d:Disease)-[:就诊科室]->(dept:Department)<-[:可能导致]-(s:Symptom)
                 WHERE s.name IN $symptoms
                 RETURN d.name AS name, count(DISTINCT s) AS symptom_count
                 ORDER BY symptom_count DESC
@@ -617,58 +617,35 @@ class Neo4jClient:
                 },
             }
 
-        # 2. 获取每个症状的科室概率
-        symptom_probs = []
-        for symptom in normalized_symptoms:
-            probs = self.get_symptom_dept_probs(symptom)
-            if probs:
-                symptom_probs.append(probs)
+        # 2. 症状→疾病→科室 (两跳推理 + Jaccard评分)
+        disease_depts = self.get_diseases_by_symptoms(normalized_symptoms, limit=20)
 
-        if not symptom_probs:
+        if not disease_depts:
             return {
                 "departments": [],
                 "confidence": {
                     "overall_confidence": 0.0,
-                    "reason": "未找到症状对应的科室数据",
+                    "reason": "未找到匹配的疾病",
                 },
             }
 
-        # 2. 路径1: 直接症状→科室 (单跳)
+        # 3. 按科室累加 Jaccard 得分
         dept_scores = {}
-        for sp in symptom_probs:
-            top_dept = sp.get("top_department")
-            top_prob = sp.get("top_prob", 0)
-            if top_dept:
-                dept_scores[top_dept] = dept_scores.get(top_dept, 0) + top_prob
-
-        # 3. 路径2: 症状→疾病→科室 (两跳推理)
-        disease_depts = self.get_diseases_by_symptoms(normalized_symptoms, limit=10)
-        disease_dept_scores = {}
         for item in disease_depts:
             dept = item.get("department")
-            symptom_match = item.get("symptom_match", 1)
+            jaccard_score = item.get("jaccard_score", 0)
             if dept:
-                disease_dept_scores[dept] = (
-                    disease_dept_scores.get(dept, 0) + symptom_match
-                )
+                dept_scores[dept] = dept_scores.get(dept, 0) + jaccard_score
 
-        if disease_dept_scores:
-            max_disease_score = max(disease_dept_scores.values())
-            disease_dept_scores = {
-                dept: score / max_disease_score
-                for dept, score in disease_dept_scores.items()
+        # 4. 归一化得分
+        if dept_scores:
+            max_score = max(dept_scores.values())
+            dept_scores = {
+                dept: score / max_score for dept, score in dept_scores.items()
             }
 
-        # 4. 融合两条路径 (单跳权重 0.6, 两跳权重 0.4)
-        all_depts = set(dept_scores.keys()) | set(disease_dept_scores.keys())
-        fused_scores = {}
-        for dept in all_depts:
-            direct_score = dept_scores.get(dept, 0)
-            disease_score = disease_dept_scores.get(dept, 0)
-            fused_scores[dept] = direct_score * 0.6 + disease_score * 0.4
-
-        # 5. 排序并返回 Top-K (使用融合后的分数)
-        sorted_depts = sorted(fused_scores.items(), key=lambda x: -x[1])
+        # 5. 排序并返回 Top-K
+        sorted_depts = sorted(dept_scores.items(), key=lambda x: -x[1])
         total_score = sum(s for _, s in sorted_depts)
 
         departments = [
@@ -676,26 +653,24 @@ class Neo4jClient:
                 "name": dept,
                 "score": round(score, 3),
                 "probability": round(score / total_score, 3) if total_score > 0 else 0,
-                "direct_score": round(dept_scores.get(dept, 0), 3),
-                "disease_score": round(disease_dept_scores.get(dept, 0), 3),
             }
             for dept, score in sorted_depts[:top_k]
         ]
 
-        # 6. 计算置信度
-        confidence = self.calculate_confidence(symptom_probs, len(symptoms))
+        # 6. 计算置信度（简化版）
+        confidence = {
+            "overall_confidence": round(disease_depts[0].get("jaccard_score", 0), 3)
+            if disease_depts
+            else 0,
+        }
 
         return {
             "departments": departments,
             "confidence": confidence,
-            "symptoms_used": len(symptom_probs),
+            "symptoms_used": len(normalized_symptoms),
             "all_symptoms": symptoms,
             "disease_reasoning": disease_depts[:5],
-            "reasoning_paths": {
-                "direct": dept_scores,
-                "disease": disease_dept_scores,
-                "fused": fused_scores,
-            },
+            "reasoning_method": "两跳推理 + Jaccard相似度",
         }
 
     def get_diseases_by_symptoms(
@@ -704,46 +679,72 @@ class Neo4jClient:
         limit: int = 10,
     ) -> List[Dict[str, Any]]:
         """
-        根据症状查询可能的疾病
+        根据症状查询可能的疾病，使用 Jaccard 相似度评分
+
+        Jaccard = 匹配数量 / (疾病症状数 + 用户症状数 - 匹配数量)
 
         Args:
             symptoms: 症状列表
             limit: 返回数量
 
         Returns:
-            疾病列表，包含名称和关联科室
+            疾病列表，包含 Jaccard 得分和关联科室
         """
         if not self._driver or not symptoms:
             return []
 
+        user_symptom_count = len(symptoms)
+
         try:
             with self._driver.session() as session:
-                # 使用多跳查询
+                # 使用多跳查询，获取每个疾病的症状总数
                 result = session.run(
                     """
-                    MATCH (s:Symptom)-[:可能导致]->(d:Disease)-[:治疗科室]->(dept:Department)
+                    MATCH (s:Symptom)-[:可能导致]->(d:Disease)-[:就诊科室]->(dept:Department)
                     WHERE s.name IN $symptoms
-                    WITH d, dept, count(s) as symptom_match
-                    ORDER BY symptom_match DESC
-                    LIMIT $limit
-                    RETURN d.name as disease, dept.name as department,
-                           symptom_match, d.description as desc
+                    WITH d, dept, collect(s.name) as matched_symptoms, count(s) as symptom_match
+                    RETURN d.name as disease, 
+                           dept.name as department,
+                           symptom_match,
+                           matched_symptoms,
+                           d.symptom_count as disease_symptom_count,
+                           d.description as desc
                 """,
                     symptoms=symptoms,
-                    limit=limit,
                 )
 
-                return [
-                    {
-                        "disease": record["disease"],
-                        "department": record["department"],
-                        "symptom_match": record["symptom_match"],
-                        "description": record.get("desc", "")[:200]
-                        if record.get("desc")
-                        else "",
-                    }
-                    for record in result
-                ]
+                # 计算 Jaccard 相似度
+                disease_scores = []
+                for record in result:
+                    disease_symptom_count = record.get("disease_symptom_count", 0) or 0
+                    if disease_symptom_count == 0:
+                        continue
+
+                    symptom_match = record.get("symptom_match", 0)
+
+                    # Jaccard = 匹配数量 / (疾病症状数 + 用户症状数 - 匹配数量)
+                    jaccard_score = symptom_match / (
+                        disease_symptom_count + user_symptom_count - symptom_match
+                    )
+
+                    disease_scores.append(
+                        {
+                            "disease": record["disease"],
+                            "department": record["department"],
+                            "symptom_match": symptom_match,
+                            "disease_symptom_count": disease_symptom_count,
+                            "jaccard_score": jaccard_score,
+                            "matched_symptoms": record.get("matched_symptoms", []),
+                            "description": record.get("desc", "")[:200]
+                            if record.get("desc")
+                            else "",
+                        }
+                    )
+
+                # 按 Jaccard 得分排序
+                disease_scores.sort(key=lambda x: -x["jaccard_score"])
+
+                return disease_scores[:limit]
 
         except Exception as e:
             logger.warning(f"查询疾病失败: {e}")
