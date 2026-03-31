@@ -211,7 +211,7 @@ def _layer0_neo4j_match(user_input: str) -> dict:
 def fill_slots(
     user_input: Any, current_slots: Optional[DiagnosisSlots] = None
 ) -> DiagnosisSlots:
-    """从用户输入填充槽位（四层架构）"""
+    """从用户输入填充槽位（方案A：LLM提原词 → Neo4j转标准术语）"""
     if current_slots is None:
         current_slots = DiagnosisSlots()
 
@@ -230,54 +230,46 @@ def fill_slots(
     if not current_slots.chief_complaint:
         current_slots.chief_complaint = user_input
 
-    # ============ Layer 0: Neo4j CM3KG 匹配 (唯一数据源) ============
-    neo4j_symptoms = _layer0_neo4j_match(user_input)
-
-    # ============ Layer 1: LLM 抽取 ============
+    # ============ Layer 1: LLM 提取原始症状 ============
     llm_result = _layer2_llm_extract(user_input)
+    raw_symptoms = llm_result.get("symptoms", [])
+    raw_negative = llm_result.get("negative_symptoms", [])
 
-    # 优先使用 Neo4j 结果，如果没有则用 LLM 兜底
-    if neo4j_symptoms.get("symptoms"):
-        final_symptoms = neo4j_symptoms["symptoms"]
-        sources = {s: "neo4j" for s in final_symptoms}
-    else:
-        final_symptoms = llm_result.get("symptoms", [])
-        sources = {s: "llm" for s in final_symptoms}
+    # ============ Layer 2: Neo4j 俗语转换（原词 → 标准术语） ============
+    standardized_symptoms = []
+    symptom_mapping = {}  # 记录映射关系: {"头壳痛": "头痛"}
+    for raw in raw_symptoms:
+        std = _neo4j_convert_symptom(raw)
+        if std:
+            standardized_symptoms.append(std)
+            symptom_mapping[raw] = std
+        else:
+            # Neo4j 转换失败，保留原词
+            standardized_symptoms.append(raw)
+            symptom_mapping[raw] = raw
 
-    # 合并 LLM 结果（更高优先级）
-    llm_symptoms = llm_result.get("symptoms", [])
-    for s in llm_symptoms:
-        if s not in final_symptoms:
-            final_symptoms.append(s)
-            sources[s] = "llm"
-
-    # 去重并保持顺序
-    seen = set()
-    unique_symptoms = []
-    for s in final_symptoms:
-        if s not in seen:
-            seen.add(s)
-            unique_symptoms.append(s)
-    final_symptoms = unique_symptoms
-
-    # 处理否定症状
-    llm_full = llm_result.get("full_result", {})
-    negative = llm_full.get("negative_symptoms", [])
-    existing_negative = current_slots.negative_symptoms if current_slots else []
-    all_negative = list(set(existing_negative + negative))
+    # 否定症状也做标准化
+    standardized_negative = []
+    for raw_neg in raw_negative:
+        std_neg = _neo4j_convert_symptom(raw_neg)
+        if std_neg:
+            standardized_negative.append(std_neg)
+        else:
+            standardized_negative.append(raw_neg)
 
     # 从症状中移除被否定的症状
-    final_symptoms = [s for s in final_symptoms if s not in all_negative]
+    final_symptoms = [
+        s for s in standardized_symptoms if s not in standardized_negative
+    ]
 
     # 构建 slots
     slots_dict = current_slots.to_dict()
     slots_dict["symptoms"] = final_symptoms
-    slots_dict["symptom_sources"] = {
-        k: v for k, v in sources.items() if k not in all_negative
-    }
-    slots_dict["negative_symptoms"] = all_negative
+    slots_dict["negative_symptoms"] = standardized_negative
+    slots_dict["symptom_sources"] = {s: "llm+neo4j" for s in final_symptoms}
 
     # LLM 其他字段
+    llm_full = llm_result.get("full_result", {})
     if llm_full.get("location"):
         slots_dict["location"] = llm_full["location"]
     if llm_full.get("duration"):
@@ -293,6 +285,30 @@ def fill_slots(
     slots = _layer4_kg_validate(slots, user_input)
 
     return slots
+
+
+def _neo4j_convert_symptom(raw_symptom: str) -> str:
+    """
+    Neo4j 俗语转换：将用户原词转换为标准医学术语
+    例如: "头壳痛" → "头痛", "肚子疼" → "腹痛"
+    """
+    if not raw_symptom:
+        return ""
+
+    try:
+        from app.infra.neo4j_client import get_neo4j_client
+
+        client = get_neo4j_client()
+        if client and client._driver:
+            matches = client.semantic_match_symptoms(
+                raw_symptom, top_k=1, threshold=0.7
+            )
+            if matches:
+                return matches[0].get("name", raw_symptom)
+    except Exception as e:
+        print(f"Neo4j 俗语转换失败 ({raw_symptom}): {e}")
+
+    return raw_symptom
 
 
 def _layer1_dict_match(user_input: str) -> dict:
@@ -319,7 +335,7 @@ def _layer1_dict_match(user_input: str) -> dict:
 
 def _layer2_llm_extract(user_input: str) -> dict:
     """
-    Layer 2: LLM抽取
+    Layer 1: LLM 提取原始症状（保留用户原词，用于审计追溯）
     使用 Qwen Turbo 进行语义提取
     """
     if not USE_LLM_EXTRACTOR:
@@ -333,32 +349,20 @@ def _layer2_llm_extract(user_input: str) -> dict:
         if not result:
             return {"symptoms": [], "sources": {}}
 
-        # 获取原始症状和标准化症状
+        # 获取原始症状（LLM 现在只提取原词，不做标准化）
         raw_symptoms = result.get("symptoms", [])
-        std_symptoms = result.get("standardized_symptoms", [])
-
-        # 优先使用标准化症状，如果没有则用原始症状
-        symptoms = std_symptoms if std_symptoms else raw_symptoms
-
-        # 记录来源
-        sources = {}
-        for s in std_symptoms:
-            sources[s] = "llm_standardized"
-        for s in raw_symptoms:
-            if s not in sources:
-                sources[s] = "llm_raw"
+        negative_symptoms = result.get("negative_symptoms", [])
 
         return {
-            "symptoms": symptoms,
-            "raw_symptoms": raw_symptoms,
-            "standardized_symptoms": std_symptoms,
-            "sources": sources,
+            "symptoms": raw_symptoms,
+            "negative_symptoms": negative_symptoms,
+            "sources": {s: "llm_raw" for s in raw_symptoms},
             "full_result": result,
         }
 
     except Exception as e:
-        print(f"Layer 2 (LLM抽取) 失败: {e}")
-        return {"symptoms": [], "sources": {}}
+        print(f"Layer 1 (LLM提取原词) 失败: {e}")
+        return {"symptoms": [], "negative_symptoms": [], "sources": {}}
 
 
 def _layer3_merge_to_slots(
