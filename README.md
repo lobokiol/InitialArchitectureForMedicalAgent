@@ -17,13 +17,10 @@ web页面：
 - 医疗导诊对话
   - 支持面向「症状问诊」和「就医流程」的多轮对话。
   - **多轮问诊系统**：通过槽位填充逐步收集患者症状信息，输出结构化问诊表。
-  - **语义症状匹配**：基于向量嵌入的语义对齐，将口语化症状描述映射至标准医学术语。
-  - **四层症状提取架构**：
-    - Layer 0: Neo4j CM3KG 向量语义匹配 (embedding 余弦相似度)
-    - Layer 1: 症状词典 (317个keywords快速匹配) ⚠️ 已废弃，改用向量匹配
-    - Layer 2: LLM抽取 (Qwen Turbo语义提取)
-    - Layer 3: 合并到Slot (整合多源结果)
-    - Layer 4: 知识图谱校验 (验证+扩展+消歧)
+  - **方案A 症状提取架构**（LLM 提原词 → Neo4j 转标准术语 → 可追溯）：
+    - **步骤1**: LLM 提取症状原词（保留用户原话，如"头壳痛"、"肚子疼"）
+    - **步骤2**: Neo4j 向量语义匹配（原词 → 标准医学术语，如"头壳痛"→"头痛"）
+    - **步骤3**: 槽位填充 + 知识图谱校验
   - **KG + RAG 融合推理**：融合知识图谱与多路RAG检索的综合科室推荐。
   - **MCP 工具调度**：所有数据源通过 MCP (Model Context Protocol) 统一调度。
   - **危险信号检测**：实时检测胸痛、呼吸困难等危急症状，立即告警建议挂急诊。
@@ -98,38 +95,36 @@ web页面：
 
 ## 三、系统架构流程
 
-核心对话工作流采用 **八步流水线** 设计，以 MCP 为数据调度中心：
+核心对话工作流采用 **九步流水线** 设计，以 MCP 为数据调度中心：
 
 ```mermaid
 graph TD
     %% 1. 输入预处理
     Start((用户输入)) --> Step1["<b>1. 历史裁剪 (trim_history)</b>"]
-    Step1 --> Step2["<b>2. 文本预处理 (preprocess)</b>"]
+    Step1 --> Step2["<b>2. 意图识别 (Decision Node)</b><br/>7B INT4 分类: 导诊/流程/闲聊/危急"]
     
-    %% 2. 语义解析层
-    Step2 --> Step3["<b>3. Neo4j 症状提取 (Layer 0-1)</b><br/>初步提取实体作为意图特征"]
-    Step3 --> Step4{"<b>4. 核心意图路由 (Decision Node)</b><br/>LoRA 强化分类模型"}
-
-    %% 3. 非导诊分支 (快速路径)
-    Step4 -- "闲聊 / 拒答" --> ExitNode["<b>结束节点 (Exit)</b><br/>礼貌回复并直接终止"]
+    %% 2. 非导诊分支 (快速路径)
+    Step2 -- "闲聊 / 拒答" --> ExitNode["<b>结束节点 (Exit)</b><br/>礼貌回复并直接终止"]
     ExitNode --> End((结束))
 
-    Step4 -- "触发危急值" --> Emergency["<b>急诊红色通道</b><br/>人工介入 / 紧急告警"]
+    Step2 -- "触发危急值" --> Emergency["<b>急诊红色通道</b><br/>人工介入 / 紧急告警"]
     Emergency --> End
 
-    Step4 -- "办事指南 / 流程咨询" --> Step_ES["<b>ES 指南搜索 (MCP)</b><br/>检索医院手册/政策/流程"]
+    Step2 -- "办事指南 / 流程咨询" --> Step_ES["<b>ES 指南搜索 (MCP)</b><br/>检索医院手册/政策/流程"]
     Step_ES --> Step9
 
-    %% 4. 导诊分支 (深度路径)
-    Step4 -- "看病导诊" --> Step5["<b>5. 槽位填充 (Slot Table)</b>"]
+    %% 3. 导诊分支 (深度路径) - 意图识别后才做症状提取
+    Step2 -- "看病导诊" --> Step3["<b>3. LLM 提取症状原词</b><br/>保留用户原话, 不做标准化"]
+    Step3 --> Step4["<b>4. Neo4j 俗语转换</b><br/>原词 → 标准医学术语<br/>(如'头壳痛'→'头痛')"]
+    Step4 --> Step5["<b>5. 槽位填充 (Slot Table)</b><br/>症状/时长/部位/程度"]
     Step5 --> Step6{"<b>6. 槽位完整性检查</b>"}
     
     Step6 -- "信息不足" --> Clarify["<b>动态追问 (Clarify)</b>"]
-    Clarify --> Step4
+    Clarify --> Step3
     
     Step6 -- "满足检索" --> Step7["<b>7. 混合检索模块 (MCP)</b><br/>Neo4j 推理 + Milvus 向量"]
     
-    %% 5. 质量校验与输出
+    %% 4. 质量校验与输出
     Step7 --> Step8{"<b>8. 答案生产检查</b>"}
     
     Step8 -- "相关性低" --> Rewrite["<b>Query Rewrite</b>"]
@@ -141,14 +136,14 @@ graph TD
     %% MCP 协议中枢
     subgraph MCP_Infrastructure [MCP Protocol Layer]
         MCP_Server{<b>MCP Server / Router</b>}
-        T_Neo4j[(Neo4j Tool<br/>症状映射)]
+        T_Neo4j[(Neo4j Tool<br/>俗语转换/科室推理)]
         T_ES[(ES Tool<br/>指南/规章搜索)]
         T_Milvus[(Milvus Tool<br/>医学知识检索)]
         T_HIS[HIS API<br/>挂号卡片]
     end
 
     %% MCP 调用链路
-    Step3 <==> MCP_Server
+    Step4 <==> MCP_Server
     Step_ES <==> MCP_Server
     Step7 <==> MCP_Server
     Step9 <==> MCP_Server
@@ -159,7 +154,9 @@ graph TD
     MCP_Server --- T_HIS
 
     %% 样式美化
-    style Step4 fill:#f96,stroke:#333,stroke-width:2px
+    style Step2 fill:#f96,stroke:#333,stroke-width:2px
+    style Step3 fill:#bbf,stroke:#333
+    style Step4 fill:#bfb,stroke:#333
     style ExitNode fill:#ddd,stroke:#999
     style Step_ES fill:#fff9c4,stroke:#fbc02d
     style Emergency fill:#f66,stroke:#fff,color:#fff
@@ -171,9 +168,9 @@ graph TD
 | 步骤 | 节点 | 功能 |
 |------|------|------|
 | 1 | trim_history | 历史消息裁剪，控制上下文长度 |
-| 2 | preprocess | 文本标准化（繁→简、去噪声、同义标准化） |
-| 3 | Neo4j 症状提取 | Layer 0-1 快速匹配（向量+字典） |
-| 4 | Decision Node | **LoRA 强化**意图分类 + 安全护栏 |
+| 2 | **decision** | **意图识别（7B INT4）：导诊/流程/闲聊/危急** |
+| 3 | **LLM 提取原词** | **提取症状原词（保留用户原话，不做标准化）** |
+| 4 | **Neo4j 俗语转换** | **原词 → 标准医学术语（如"头壳痛"→"头痛"）** |
 | 5 | Slot Table | 槽位填充（症状、部位、时长、严重程度等） |
 | 6 | 槽位检查 | 置信度 < 0.65 → 追问；≥ 0.65 → 检索 |
 | 7 | 混合检索 | Neo4j 推理 + Milvus 向量 + ES 流程 |
@@ -185,9 +182,8 @@ graph TD
 | 步骤 | LangGraph 节点 |
 |------|---------------|
 | 1 | `trim_history` |
-| 2 | `preprocess` (新增) |
-| 3 | `diagnosis` (Layer 0-1) |
-| 4 | `decision` (LoRA 强化) |
+| 2 | `decision` (意图识别) |
+| 3-4 | `diagnosis` → `fill_slots` (LLM提原词 → Neo4j转换) |
 | 5 | `slot_fill` |
 | 6 | `completion` |
 | 7 | `kg_rag_fusion` + `milvus_rag` |
