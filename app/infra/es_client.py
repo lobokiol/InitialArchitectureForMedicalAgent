@@ -67,14 +67,14 @@ def search_process_docs(query: str, size: int = 5) -> List[RetrievedDoc]:
 
 def search_rag_es(query: str, size: int = 50) -> List[RetrievedDoc]:
     """
-    搜索 rag_es 索引（医疗问答数据）
+    搜索 medical_knowledge 索引（医疗问答数据）
     使用 BM25 检索，返回 top_k 结果
     """
     body = {
         "query": {
             "multi_match": {
                 "query": query,
-                "fields": ["ask^2", "answer^1", "tags^1.5", "theme^1", "departments^1"],
+                "fields": ["title^2", "content^1"],
                 "type": "best_fields",
             }
         },
@@ -82,11 +82,11 @@ def search_rag_es(query: str, size: int = 50) -> List[RetrievedDoc]:
     }
 
     try:
-        res = es_client.search(index="rag_es", body=body)
+        res = es_client.search(index="medical_knowledge", body=body)
         hits = res.get("hits", {}).get("hits", [])
-        logger.info("search_rag_es: hits=%d", len(hits))
+        logger.info("search_rag_es (medical_knowledge): hits=%d", len(hits))
     except Exception:
-        logger.exception("ES rag_es 查询失败")
+        logger.exception("ES medical_knowledge 查询失败")
         return []
 
     docs: List[RetrievedDoc] = []
@@ -96,8 +96,8 @@ def search_rag_es(query: str, size: int = 50) -> List[RetrievedDoc]:
             RetrievedDoc(
                 id=src.get("id", h.get("_id")),
                 source="medical",
-                title=src.get("theme", ""),
-                content=f"问题: {src.get('ask', '')}\n回答: {src.get('answer', '')}",
+                title=src.get("title", ""),
+                content=src.get("content", ""),
                 score=h.get("_score"),
             )
         )

@@ -15,13 +15,14 @@ milvus_store = Milvus(
     embedding_function=get_embedding_model(),
     connection_args={"uri": config.MILVUS_URI},
     collection_name=config.MILVUS_COLLECTION,
+    text_field="content",  # Milvus 集合中文本字段名为 content，非默认 text
     index_params={
         "index_type": "HNSW",
         "metric_type": "COSINE",
         "params": {
             "M": 16,
             "efConstruction": 200,
-            "efSearch": 64,  # 新增 efSearch 参数，控制搜索时的效率与准确率平衡
+            "efSearch": 64,
         },
     },
 )
@@ -42,6 +43,8 @@ def search_medical_docs(query: str) -> List[RetrievedDoc]:
     converted: List[RetrievedDoc] = []
     for i, (doc, score) in enumerate(docs_and_scores, 1):
         rid = doc.metadata.get("id", "") if getattr(doc, "metadata", None) else ""
+        # Milvus 返回的 id 可能是整数，需要转换为字符串
+        rid = str(rid) if rid is not None else ""
         title = doc.metadata.get("title") if getattr(doc, "metadata", None) else None
 
         logger.info(
