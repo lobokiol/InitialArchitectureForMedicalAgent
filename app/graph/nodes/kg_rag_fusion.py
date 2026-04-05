@@ -45,8 +45,10 @@ def kg_rag_fusion(
     if kg_result and kg_result.get("departments"):
         for dept in kg_result["departments"]:
             name = dept.get("name", "")
-            prob = dept.get("probability", 0)
-            kg_depts[name] = prob
+            # 使用 score（原始归一化得分，max=1.0）而非 probability（相对概率，sum=1.0）
+            # 这样置信度能反映匹配质量，而非只是排名
+            score = dept.get("score", dept.get("probability", 0))
+            kg_depts[name] = score
 
     # 2. 从 RAG 文档中提取科室信息
     rag_depts = _extract_depts_from_rag(rag_docs)
@@ -76,7 +78,13 @@ def kg_rag_fusion(
 
     return {
         "departments": [
-            {"name": name, "score": round(score, 3), "probability": round(score, 3)}
+            {
+                "name": name,
+                "score": round(score, 3),
+                "probability": round(score / sum(s for _, s in sorted_depts[:5]), 3)
+                if sum(s for _, s in sorted_depts[:5]) > 0
+                else 0,
+            }
             for name, score in sorted_depts[:5]
         ],
         "confidence": confidence,
@@ -280,6 +288,12 @@ def _calculate_fusion_confidence(
 
     # 综合置信度（应用否定症状惩罚）
     overall = (kg_conf * kg_weight + rag_conf * rag_weight) * negation_penalty
+
+    # 如果只有 KG 结果，提高 KG 的权重占比
+    if not rag_depts and kg_depts:
+        overall = kg_conf * negation_penalty
+    elif not kg_depts and rag_depts:
+        overall = rag_conf * negation_penalty
 
     # 生成原因
     reason = _get_confidence_reason(

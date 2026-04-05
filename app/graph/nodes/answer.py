@@ -101,6 +101,24 @@ def answer_generate_node(state: AppState) -> dict:
 
     history_block = format_history(state.messages)
 
+    # 如果有科室推荐结果，添加到 prompt 中
+    department_block = ""
+    if hasattr(state, "department_inference") and state.department_inference:
+        dept_info = state.department_inference
+        if dept_info.get("departments"):
+            dept_lines = ["根据知识图谱推理，推荐的就诊科室如下："]
+            for i, dept in enumerate(dept_info["departments"], 1):
+                prob_pct = dept.get("probability", 0) * 100
+                dept_lines.append(f"{i}. {dept['name']} (置信度: {prob_pct:.0f}%)")
+            sources = dept_info.get("sources", {})
+            if sources.get("kg", 0) > 0 and sources.get("rag", 0) > 0:
+                dept_lines.append("\n数据来源: 知识图谱 + 文档检索")
+            elif sources.get("kg", 0) > 0:
+                dept_lines.append("\n数据来源: 知识图谱推理")
+            elif sources.get("rag", 0) > 0:
+                dept_lines.append("\n数据来源: 文档检索分析")
+            department_block = "\n".join(dept_lines)
+
     prompt = ANSWER_PROMPT.format(
         history_block=history_block,
         user_query=user_query,
@@ -109,10 +127,15 @@ def answer_generate_node(state: AppState) -> dict:
         tool_result_block=_fmt_tool_result(state.tool_call_result),
     )
 
+    # 如果有科室推荐，追加到 prompt 末尾
+    if department_block:
+        prompt += f"\n\n【科室推荐】\n{department_block}\n\n请根据上述科室推荐和用户的问题，给出专业的导诊建议，包括推荐的科室和理由。"
+
     logger.info(
-        "answer_generate_node: medical_docs=%d, process_docs=%d",
+        "answer_generate_node: medical_docs=%d, process_docs=%d, dept_recommend=%s",
         len(state.medical_docs),
         len(state.process_docs),
+        "yes" if department_block else "no",
     )
 
     try:

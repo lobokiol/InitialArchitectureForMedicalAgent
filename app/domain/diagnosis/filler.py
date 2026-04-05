@@ -262,11 +262,25 @@ def fill_slots(
         s for s in standardized_symptoms if s not in standardized_negative
     ]
 
+    # 合并历史症状（保留之前轮次已确认的症状）
+    existing_symptoms = current_slots.symptoms if current_slots else []
+    merged_symptoms = list(dict.fromkeys(existing_symptoms + final_symptoms))
+
+    # 从合并后的症状中移除本轮新发现的否定症状
+    merged_symptoms = [s for s in merged_symptoms if s not in standardized_negative]
+
     # 构建 slots
     slots_dict = current_slots.to_dict()
-    slots_dict["symptoms"] = final_symptoms
+    slots_dict["symptoms"] = merged_symptoms
     slots_dict["negative_symptoms"] = standardized_negative
-    slots_dict["symptom_sources"] = {s: "llm+neo4j" for s in final_symptoms}
+
+    # 合并症状来源：保留历史来源，新增本轮来源
+    merged_sources = dict(current_slots.symptom_sources if current_slots else {})
+    merged_sources.update({s: "llm+neo4j" for s in final_symptoms})
+    # 移除被否定的症状的来源
+    for neg in standardized_negative:
+        merged_sources.pop(neg, None)
+    slots_dict["symptom_sources"] = merged_sources
 
     # LLM 其他字段
     llm_full = llm_result.get("full_result", {})
@@ -414,14 +428,20 @@ def _layer3_merge_to_slots(
     existing_negative = existing_slots.negative_symptoms if existing_slots else []
     all_negative = list(set(existing_negative + negative))
 
-    # 从症状中移除被否定的症状（重要！）
-    final_symptoms = [s for s in final_symptoms if s not in all_negative]
+    # 合并历史症状（保留之前轮次已确认的症状）
+    existing_symptoms = existing_slots.symptoms if existing_slots else []
+    merged_symptoms = list(dict.fromkeys(existing_symptoms + list(final_symptoms)))
+
+    # 从合并后的症状中移除被否定的症状（重要！）
+    merged_symptoms = [s for s in merged_symptoms if s not in all_negative]
 
     slots_dict = existing_slots.to_dict()
-    slots_dict["symptoms"] = final_symptoms
-    slots_dict["symptom_sources"] = {
-        k: v for k, v in sources.items() if k not in all_negative
-    }
+    slots_dict["symptoms"] = merged_symptoms
+
+    # 合并症状来源：保留历史来源，新增本轮来源
+    merged_sources = dict(existing_slots.symptom_sources if existing_slots else {})
+    merged_sources.update({k: v for k, v in sources.items() if k not in all_negative})
+    slots_dict["symptom_sources"] = merged_sources
     slots_dict["negative_symptoms"] = all_negative
 
     # LLM其他字段

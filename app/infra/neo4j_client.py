@@ -130,13 +130,23 @@ class Neo4jClient:
         with self._driver.session() as session:
             result = session.run(
                 """
-                MATCH (d:Disease {name: $disease})-[r:就诊科室]->(dept:Department)
-                RETURN dept.name as name
+                MATCH (d:Disease {name: $disease})
+                RETURN d.department as department
             """,
                 disease=disease,
             )
 
-            return [record["name"] for record in result]
+            record = result.single()
+            if not record or not record.get("department"):
+                return []
+
+            dept = record["department"]
+            if isinstance(dept, str):
+                dept = dept.replace("/", ",").replace("；", ",").replace(";", ",")
+                return [d.strip() for d in dept.split(",") if d.strip()]
+            elif isinstance(dept, list):
+                return dept
+            return []
 
     def query_symptoms_by_keyword(self, keyword: str) -> List[str]:
         """
@@ -255,22 +265,23 @@ class Neo4jClient:
                     """
                     MATCH (s:Symptom)
                     WHERE s.embedding IS NOT NULL
-                    WITH s, s.embedding AS embedding
-                    WITH s, vector.similarity.cosine(embedding, $embedding) AS score
-                    WHERE score >= $threshold
-                    RETURN s.name AS name, score
-                    ORDER BY score DESC
-                    LIMIT $top_k
+                    RETURN s.name AS name, s.embedding AS embedding
                 """,
-                    embedding=query_embedding,
-                    threshold=threshold,
-                    top_k=top_k,
                 )
 
-                return [
-                    {"name": record["name"], "score": record["score"]}
-                    for record in result
-                ]
+                import numpy as np
+
+                candidates = []
+                for record in result:
+                    name = record["name"]
+                    emb = record["embedding"]
+                    if emb and len(emb) == len(query_embedding):
+                        score = np.dot(query_embedding, emb)
+                        if score >= threshold:
+                            candidates.append({"name": name, "score": float(score)})
+
+                candidates.sort(key=lambda x: x["score"], reverse=True)
+                return candidates[:top_k]
 
         except Exception as e:
             logger.warning(f"向量搜索失败: {e}")
@@ -327,16 +338,24 @@ class Neo4jClient:
             # 查询相关疾病
             disease_result = session.run(
                 """
-                MATCH (d:Disease)-[:就诊科室]->(dept:Department)<-[:可能导致]-(s:Symptom)
+                MATCH (s:Symptom)-[:可能导致]->(d:Disease)
                 WHERE s.name IN $symptoms
-                RETURN d.name AS name, count(DISTINCT s) AS symptom_count
+                RETURN d.name AS name, d.department AS department, count(DISTINCT s) AS symptom_count
                 ORDER BY symptom_count DESC
                 LIMIT 10
             """,
                 symptoms=symptoms,
             )
 
-            diseases = [record["name"] for record in disease_result]
+            diseases = []
+            for record in disease_result:
+                diseases.append(
+                    {
+                        "name": record["name"],
+                        "department": record.get("department", ""),
+                        "symptom_count": record["symptom_count"],
+                    }
+                )
 
             return {
                 "departments": departments,
@@ -698,13 +717,14 @@ class Neo4jClient:
         try:
             with self._driver.session() as session:
                 # 使用多跳查询，获取每个疾病的症状总数
+                # 注意：Disease 节点的科室信息存储在 department 属性中，而非关系
                 result = session.run(
                     """
-                    MATCH (s:Symptom)-[:可能导致]->(d:Disease)-[:就诊科室]->(dept:Department)
+                    MATCH (s:Symptom)-[:可能导致]->(d:Disease)
                     WHERE s.name IN $symptoms
-                    WITH d, dept, collect(s.name) as matched_symptoms, count(s) as symptom_match
+                    WITH d, collect(s.name) as matched_symptoms, count(s) as symptom_match
                     RETURN d.name as disease, 
-                           dept.name as department,
+                           d.department as department,
                            symptom_match,
                            matched_symptoms,
                            d.symptom_count as disease_symptom_count,
@@ -727,19 +747,33 @@ class Neo4jClient:
                         disease_symptom_count + user_symptom_count - symptom_match
                     )
 
-                    disease_scores.append(
-                        {
-                            "disease": record["disease"],
-                            "department": record["department"],
-                            "symptom_match": symptom_match,
-                            "disease_symptom_count": disease_symptom_count,
-                            "jaccard_score": jaccard_score,
-                            "matched_symptoms": record.get("matched_symptoms", []),
-                            "description": record.get("desc", "")[:200]
-                            if record.get("desc")
-                            else "",
-                        }
-                    )
+                    # department 属性可能是字符串或列表
+                    dept = record.get("department", "")
+                    if isinstance(dept, str):
+                        # 处理 "内科,外科" 或 "内科/外科" 等格式
+                        dept = (
+                            dept.replace("/", ",").replace("；", ",").replace(";", ",")
+                        )
+                        departments = [d.strip() for d in dept.split(",") if d.strip()]
+                    elif isinstance(dept, list):
+                        departments = dept
+                    else:
+                        departments = []
+
+                    for department in departments:
+                        disease_scores.append(
+                            {
+                                "disease": record["disease"],
+                                "department": department,
+                                "symptom_match": symptom_match,
+                                "disease_symptom_count": disease_symptom_count,
+                                "jaccard_score": jaccard_score,
+                                "matched_symptoms": record.get("matched_symptoms", []),
+                                "description": record.get("desc", "")[:200]
+                                if record.get("desc")
+                                else "",
+                            }
+                        )
 
                 # 按 Jaccard 得分排序
                 disease_scores.sort(key=lambda x: -x["jaccard_score"])

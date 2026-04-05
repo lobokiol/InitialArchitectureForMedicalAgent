@@ -38,6 +38,22 @@ def route_after_diagnosis_router(state: AppState) -> str:
 
     # 检查诊断是否完成
     if state.diagnosis_completed:
+        # 如果 diagnosis_node 已经生成了完整的科室推荐消息，直接结束
+        # 否则走 answer_generate 生成最终回复
+        last_msg = state.messages[-1] if state.messages else None
+        if last_msg and hasattr(last_msg, "content") and last_msg.content:
+            # 检查最后一条消息是否包含科室推荐
+            if any(
+                kw in last_msg.content
+                for kw in [
+                    "我的分析结果是",
+                    "建议您选择",
+                    "知识图谱推理",
+                    "文档检索分析",
+                ]
+            ):
+                return "answer_generate"  # 走 answer_generate 来整合科室推荐
+
         return "answer_generate"
 
     return "answer_generate"

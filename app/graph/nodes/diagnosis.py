@@ -240,6 +240,8 @@ def diagnosis_node(state: AppState) -> dict:
                 "diagnosis_completed": True,
                 "diagnosis_type": "complete",
                 "diagnosis_slots": state.diagnosis_slots,
+                "department_inference": fusion_result,
+                "confidence": confidence_result,
                 "need_more_info": False,
             }
 
