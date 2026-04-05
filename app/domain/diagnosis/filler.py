@@ -314,11 +314,22 @@ def _neo4j_convert_symptom(raw_symptom: str) -> str:
 
         client = get_neo4j_client()
         if client and client._driver:
+            # 先尝试向量语义匹配
             matches = client.semantic_match_symptoms(
                 raw_symptom, top_k=1, threshold=0.7
             )
             if matches:
-                return matches[0].get("name", raw_symptom)
+                matched_name = matches[0].get("name", raw_symptom)
+                # 如果匹配到的症状和原词差异较大，说明是俗语转换成功
+                if matched_name != raw_symptom:
+                    return matched_name
+                # 如果完全匹配，也返回
+                return matched_name
+
+            # 向量搜索无结果时，尝试关键词匹配
+            keyword_matches = client.query_symptoms_by_keyword(raw_symptom)
+            if keyword_matches:
+                return keyword_matches[0]
     except Exception as e:
         print(f"Neo4j 俗语转换失败 ({raw_symptom}): {e}")
 

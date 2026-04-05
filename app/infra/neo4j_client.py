@@ -165,8 +165,7 @@ class Neo4jClient:
             result = session.run(
                 """
                 MATCH (s:Symptom)
-                WHERE s.name CONTAINS $keyword 
-                   OR ANY(k IN s.keywords WHERE k CONTAINS $keyword)
+                WHERE s.name CONTAINS $keyword
                 RETURN s.name as name
                 LIMIT 20
             """,
@@ -253,8 +252,8 @@ class Neo4jClient:
         if not self._driver:
             return []
 
+        # 先尝试向量搜索
         try:
-            # 延迟导入
             from app.core.llm import get_embedding_model
 
             embedding_model = get_embedding_model()
@@ -281,11 +280,16 @@ class Neo4jClient:
                             candidates.append({"name": name, "score": float(score)})
 
                 candidates.sort(key=lambda x: x["score"], reverse=True)
-                return candidates[:top_k]
+                if candidates:
+                    return candidates[:top_k]
 
         except Exception as e:
             logger.warning(f"向量搜索失败: {e}")
-            return []
+
+        # 向量搜索失败或无结果时，fallback 到关键词搜索
+        logger.info(f"向量搜索无结果，fallback 到关键词搜索: {query_text}")
+        keyword_matches = self.query_symptoms_by_keyword(query_text)
+        return [{"name": m, "score": 0.5} for m in keyword_matches[:top_k]]
 
     def graph_reasoning_by_symptoms(
         self, symptoms: List[str], max_depth: int = 2
